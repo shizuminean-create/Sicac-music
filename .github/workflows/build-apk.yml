@@ -16,6 +16,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 35
+
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
@@ -32,9 +33,14 @@ jobs:
           java-version: '17'
 
       - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
+        with:
+          packages: |
+            platform-tools
+            platforms;android-35
+            build-tools;35.0.0
 
-      - name: Install JavaScript dependencies
+      - name: Install dependencies
         run: npm install
 
       - name: Build web app
@@ -43,14 +49,14 @@ jobs:
       - name: Generate Android project
         run: npx cap add android
 
-      - name: Sync web assets to Android
+      - name: Sync web assets
         run: npx cap sync android
 
-      - name: Build debug APK on GitHub runner
+      - name: Build APK on GitHub
         working-directory: android
         run: ./gradlew --no-daemon assembleDebug
 
-      - name: Upload APK artifact
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: SICAC-debug-APK
