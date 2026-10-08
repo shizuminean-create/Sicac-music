@@ -1,0 +1,8 @@
+{
+  "appId": "com.sicac.music",
+  "appName": "SICAC",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  }
+}
