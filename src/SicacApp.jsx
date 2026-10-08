@@ -1,6 +1,14 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 
 // ─── CONSTANTS ─────────────────────────────────────────────────────────────
+const LEVEL_ICONS = {
+  Listener: "/Level_Rank/ic_rank_stone.webp",
+  Groove: "/Level_Rank/ic_rank_bronze.webp",
+  Vibe: "/Level_Rank/ic_rank_silver.webp",
+  Sonic: "/Level_Rank/ic_rank_gold.webp",
+  Legend: "/Level_Rank/ic_rank_emerald.webp",
+};
+
 const LEVELS = [
   { name: "Listener", min: 0,     max: 500,      color: "#6B7280" },
   { name: "Groove",   min: 500,   max: 2000,     color: "#3B82F6" },
@@ -8,6 +16,24 @@ const LEVELS = [
   { name: "Sonic",    min: 5000,  max: 10000,    color: "#F59E0B" },
   { name: "Legend",   min: 10000, max: Infinity, color: "#EF4444" },
 ];
+
+function LevelRankIcon({ name, size = 20 }) {
+  const src = LEVEL_ICONS[name];
+  if (!src) return null;
+  return (
+    <img
+      src={src}
+      alt={`${name} rank`}
+      style={{
+        width: size,
+        height: size,
+        objectFit: "contain",
+        flexShrink: 0,
+        verticalAlign: "middle",
+      }}
+    />
+  );
+}
 
 const BANNER_PRESETS = [
   { id: "purple", label: "Purple Night",  from: "#1a1a3e", mid: "#2d1b69", to: "#1e3a8a", accent: "var(--accent-soft)" },
@@ -801,7 +827,7 @@ const ProfileScreen = ({ profile, setProfile, songs }) => {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 7 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
               <div style={{ background: levelInfo.color + "20", border: `1px solid ${levelInfo.color}40`, borderRadius: 20, padding: "2px 9px", fontSize: 10, fontWeight: 700, color: levelInfo.color }}>LVL {levelInfo.idx}</div>
-              <span style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>{levelInfo.name}</span>
+              <LevelRankIcon name={levelInfo.name} size={22} />\n              <span style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>{levelInfo.name}</span>
             </div>
             <span style={{ fontSize: 11, color: "rgba(255,255,255,0.38)" }}>{levelInfo.xp.toLocaleString()} XP</span>
           </div>
