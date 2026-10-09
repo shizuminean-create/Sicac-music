@@ -1,4 +1,28 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import YouTubeOnline from "./components/YouTubeOnline.jsx";
+import { Capacitor } from "@capacitor/core";
+import { Filesystem, Directory } from "@capacitor/filesystem";
+
+
+// Persistent media storage for SICAC.
+const saveMediaFile = async (dataUrl, filename) => {
+  if (!dataUrl || !dataUrl.startsWith("data:")) return dataUrl;
+
+  // Browser fallback: keep the data URL.
+  if (!Capacitor.isNativePlatform()) return dataUrl;
+
+  const base64 = dataUrl.split(",")[1];
+  if (!base64) throw new Error("Format file tidak valid");
+
+  const result = await Filesystem.writeFile({
+    path: `sicac-media/${filename}`,
+    data: base64,
+    directory: Directory.Data,
+    recursive: true,
+  });
+
+  return Capacitor.convertFileSrc(result.uri);
+};
 
 // ─── CONSTANTS ─────────────────────────────────────────────────────────────
 const LEVEL_ICONS = {
@@ -827,7 +851,8 @@ const ProfileScreen = ({ profile, setProfile, songs }) => {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 7 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
               <div style={{ background: levelInfo.color + "20", border: `1px solid ${levelInfo.color}40`, borderRadius: 20, padding: "2px 9px", fontSize: 10, fontWeight: 700, color: levelInfo.color }}>LVL {levelInfo.idx}</div>
-              <LevelRankIcon name={levelInfo.name} size={22} />\n              <span style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>{levelInfo.name}</span>
+              <LevelRankIcon name={levelInfo.name} size={22} />
+              <span style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>{levelInfo.name}</span>
             </div>
             <span style={{ fontSize: 11, color: "rgba(255,255,255,0.38)" }}>{levelInfo.xp.toLocaleString()} XP</span>
           </div>
@@ -1056,6 +1081,7 @@ const FullPlayer = ({ player, songs, setSongs, onClose }) => {
 const TABS = [
   { id: "home",     label: "Home",     Icon: IcHome },
   { id: "upload",   label: "Upload",   Icon: IcUpload },
+  { id: "online",   label: "Online",   Icon: IcUpload },
   { id: "history",  label: "History",  Icon: IcHistory },
   { id: "profile",  label: "Profile",  Icon: IcUser },
   { id: "settings", label: "Settings", Icon: IcSettings },
@@ -1076,7 +1102,7 @@ const BottomNav = ({ active, onChange }) => (
 
 // ─── HEADER ────────────────────────────────────────────────────────────────
 const Header = ({ tab }) => {
-  const titles = { home: "SICAC", upload: "Upload", history: "History", profile: "Profile", settings: "Settings" };
+  const titles = { home: "SICAC", upload: "Upload", online: "YouTube Online", history: "History", profile: "Profile", settings: "Settings" };
   return (
     <div style={{ position: "sticky", top: 0, zIndex: 30, background: "rgba(var(--bg-rgb),0.9)", backdropFilter: "blur(16px)", borderBottom: "none", padding: "16px 18px 12px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
       <div className="disp" style={{ fontSize: tab === "home" ? 28 : 24, fontWeight: 800, color: "#fff" }}>
@@ -1097,7 +1123,21 @@ export default function SicacApp() {
   const theme = THEMES.find(t => t.id === themeId) || THEMES[0];
   const [showFullPlayer, setShowFull]   = useState(false);
   const [showBannerEdit, setShowBanner] = useState(false);
-  const [songs, setSongs]               = useState([]);
+  const [songs, setSongs] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem("sicac-songs") || "[]");
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("sicac-songs", JSON.stringify(songs));
+    } catch (error) {
+      console.warn("SICAC: daftar lagu gagal disimpan", error);
+    }
+  }, [songs]);
   const [history, setHistory]           = useState([]);
   const [profile, setProfile] = useState(() => {
     try {
@@ -1141,6 +1181,7 @@ export default function SicacApp() {
       <div style={{ padding: "14px 14px 0" }}>
         {tab === "home"     && <HomeScreen    player={player} songs={songs} setSongs={setSongs} profile={profile} banner={banner} onEditBanner={() => setShowBanner(true)} />}
         {tab === "upload"   && <UploadScreen  songs={songs} setSongs={setSongs} />}
+        {tab === "online"   && <YouTubeOnline />}
         {tab === "history"  && <HistoryScreen history={history} />}
         {tab === "profile"  && <ProfileScreen profile={profile} setProfile={setProfile} songs={songs} />}
         {tab === "settings" && <SettingsScreen banner={banner} setBanner={setBanner} themeId={themeId} setThemeId={setThemeId} />}
