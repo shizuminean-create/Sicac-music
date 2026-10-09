@@ -44,10 +44,14 @@ const LEVELS = [
 function LevelRankIcon({ name, size = 20 }) {
   const src = LEVEL_ICONS[name];
   if (!src) return null;
+
   return (
     <img
-      src={src}
+      src={`${import.meta.env.BASE_URL}${src.replace(/^\//, "")}`}
       alt={`${name} rank`}
+      onError={(event) => {
+        event.currentTarget.style.visibility = "hidden";
+      }}
       style={{
         width: size,
         height: size,
@@ -1087,7 +1091,7 @@ const TABS = [
   { id: "settings", label: "Settings", Icon: IcSettings },
 ];
 const BottomNav = ({ active, onChange }) => (
-  <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 50, background: "rgba(var(--bg-rgb),0.96)", backdropFilter: "blur(20px)", borderTop: "1px solid rgba(255,255,255,0.08)", display: "flex", height: 68, paddingBottom: "env(safe-area-inset-bottom,0px)" }}>
+  <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 50, background: "rgba(var(--bg-rgb),0.96)", backdropFilter: "blur(20px)", borderTop: "1px solid rgba(255,255,255,0.08)", display: "flex", height: "calc(68px + env(safe-area-inset-bottom, 0px))", boxSizing: "border-box", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
     {TABS.map(({ id, label, Icon }) => {
       const on = active === id;
       return (
@@ -1178,7 +1182,7 @@ export default function SicacApp() {
       <style>{GLOBAL_CSS}</style>
       <Header tab={tab} />
 
-      <div style={{ padding: "14px 14px 0" }}>
+      <div style={{ padding: "14px 14px calc(110px + env(safe-area-inset-bottom, 0px))", boxSizing: "border-box" }}>
         {tab === "home"     && <HomeScreen    player={player} songs={songs} setSongs={setSongs} profile={profile} banner={banner} onEditBanner={() => setShowBanner(true)} />}
         {tab === "upload"   && <UploadScreen  songs={songs} setSongs={setSongs} />}
         {tab === "online"   && <YouTubeOnline />}
