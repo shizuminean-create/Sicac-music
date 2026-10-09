@@ -54,6 +54,8 @@ jobs:
       # 6. Build React / Vite
       - name: Build web app
         run: npm run build
+        env:
+          VITE_YOUTUBE_API_KEY: ${{ secrets.VITE_YOUTUBE_API_KEY }}
 
       # 7. Buat project Android jika belum ada
       - name: Generate Android project
