@@ -1091,13 +1091,60 @@ const TABS = [
   { id: "settings", label: "Settings", Icon: IcSettings },
 ];
 const BottomNav = ({ active, onChange }) => (
-  <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 50, background: "rgba(var(--bg-rgb),0.96)", backdropFilter: "blur(20px)", borderTop: "1px solid rgba(255,255,255,0.08)", display: "flex", height: "calc(68px + env(safe-area-inset-bottom, 0px))", boxSizing: "border-box", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
+  <div style={{
+    position: "fixed",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 50,
+    background: "rgba(var(--bg-rgb),0.96)",
+    backdropFilter: "blur(20px)",
+    borderTop: "1px solid rgba(255,255,255,0.08)",
+    display: "flex",
+    alignItems: "stretch",
+    height: "calc(64px + env(safe-area-inset-bottom, 0px))",
+    paddingBottom: "env(safe-area-inset-bottom, 0px)",
+    boxSizing: "border-box"
+  }}>
     {TABS.map(({ id, label, Icon }) => {
       const on = active === id;
       return (
-        <button key={id} onClick={() => onChange(id)} style={{ flex: 1, background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, color: on ? "var(--accent-soft)" : "rgba(255,255,255,0.45)", transition: "color 0.15s" }}>
-          <div style={{ padding: "5px 16px", borderRadius: 99, background: on ? "rgba(var(--accent-rgb),0.18)" : "transparent", transition: "background 0.2s" }}><Icon s={20} /></div>
-          <span style={{ fontSize: 10, fontWeight: on ? 700 : 500 }}>{label}</span>
+        <button
+          key={id}
+          onClick={() => onChange(id)}
+          style={{
+            flex: "1 1 0",
+            minWidth: 0,
+            padding: "5px 0 4px",
+            boxSizing: "border-box",
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 2,
+            color: on ? "var(--accent-soft)" : "rgba(255,255,255,0.45)",
+            transition: "color 0.15s"
+          }}
+        >
+          <div style={{
+            padding: "4px 12px",
+            borderRadius: 99,
+            background: on ? "rgba(var(--accent-rgb),0.18)" : "transparent",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center"
+          }}>
+            <Icon s={20} />
+          </div>
+          <span style={{
+            fontSize: 10,
+            lineHeight: "12px",
+            whiteSpace: "nowrap",
+            fontWeight: on ? 700 : 500
+          }}>{label}</span>
         </button>
       );
     })}
