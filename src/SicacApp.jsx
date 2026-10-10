@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { MediaSession } from "@capgo/capacitor-media-session";
+import { MediaSession } from "@jofr/capacitor-media-session";
 
 // ─── GOOGLE CLIENT ID ───────────────────────────────────────────────────────
 // Ganti dengan Client ID dari Google Cloud Console Anda
@@ -209,6 +209,26 @@ const readImage = (file, maxW = 1000) => new Promise((res, rej) => {
   r.readAsDataURL(file);
 });
 
+// Sampul lagu: potong persegi dari tengah gambar lalu kecilkan
+const readCover = (file, size = 600) => new Promise((res, rej) => {
+  const r = new FileReader();
+  r.onerror = rej;
+  r.onload = () => {
+    const img = new Image();
+    img.onerror = rej;
+    img.onload = () => {
+      const side = Math.min(img.width, img.height);
+      const out = Math.min(size, side);
+      const c = document.createElement("canvas");
+      c.width = c.height = out;
+      c.getContext("2d").drawImage(img, (img.width - side) / 2, (img.height - side) / 2, side, side, 0, 0, out, out);
+      res(c.toDataURL("image/jpeg", 0.85));
+    };
+    img.src = r.result;
+  };
+  r.readAsDataURL(file);
+});
+
 // ─── AVATAR FRAME ──────────────────────────────────────────────────────────
 // 3 bingkai: Basic, Sakura, Emas. Kanvas 140x140, foto di tengah (r=50).
 const GOLD = "url(#fGold)";
@@ -308,6 +328,8 @@ const useOnlinePlayer = () => {
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
   const [ready, setReady]       = useState(false);
+  const [rate, setRateState]  = useState(1);
+  const rateRef = useRef(1);
 
   const track = index >= 0 ? queue[index] || null : null;
 
@@ -335,7 +357,7 @@ const useOnlinePlayer = () => {
           },
           onStateChange: (e) => {
             const S = window.YT.PlayerState;
-            if (e.data === S.PLAYING) setPlaying(true);
+            if (e.data === S.PLAYING) { setPlaying(true); try { e.target.setPlaybackRate(rateRef.current); } catch (_) {} }
             else if (e.data === S.PAUSED) setPlaying(false);
             else if (e.data === S.ENDED) goTo(idxRef.current + 1);   // otomatis lagu berikutnya
           },
@@ -385,13 +407,14 @@ const useOnlinePlayer = () => {
     goTo(idxRef.current - 1);
   }, [goTo]);
   const seek = useCallback((t) => { try { ytRef.current?.seekTo(t, true); } catch (_) {} setProgress(t); }, []);
+  const setRate = useCallback((r) => { rateRef.current = r; setRateState(r); try { ytRef.current?.setPlaybackRate(r); } catch (_) {} }, []);
   const stop = useCallback(() => {
     try { ytRef.current?.stopVideo(); } catch (_) {}
     pendingRef.current = null; queueRef.current = []; idxRef.current = -1;
     setQueue([]); setIndex(-1); setPlaying(false); setProgress(0); setDuration(0);
   }, []);
 
-  return { hostRef, track, queue, index, playing, progress, duration, ready, play, pause, resume, toggle, next, prev, seek, stop };
+  return { hostRef, track, queue, index, playing, progress, duration, ready, play, pause, resume, toggle, next, prev, seek, stop, rate, setRate };
 };
 
 const OnlineHome = ({ ytKey, online }) => {
@@ -399,7 +422,7 @@ const OnlineHome = ({ ytKey, online }) => {
   const [items, setItems]  = useState([]);
   const [loading, setLoad] = useState(false);
   const [error, setError]  = useState("");
-  const [category, setCategory]     = useState("all"); // "all" | "trending" | "liked"
+  const [recent, setRecent] = useState(() => { try { return JSON.parse(localStorage.getItem("sicac-recent") || "[]"); } catch (_) { return []; } });
 
   const load = useCallback(async (query) => {
     if (!ytKey) return;
@@ -417,6 +440,16 @@ const OnlineHome = ({ ytKey, online }) => {
   }, [ytKey]);
 
   useEffect(() => { load(""); }, [load]);
+
+  const doSearch = (query) => {
+    load(query);
+    if (!query) return;
+    setRecent(r => {
+      const n = [query, ...r.filter(x => x !== query)].slice(0, 6);
+      try { localStorage.setItem("sicac-recent", JSON.stringify(n)); } catch (_) {}
+      return n;
+    });
+  };
 
   if (!ytKey) return (
     <div style={{
@@ -451,7 +484,7 @@ const OnlineHome = ({ ytKey, online }) => {
         <input
           value={q}
           onChange={e => setQ(e.target.value)}
-          onKeyDown={e => e.key === "Enter" && load(q.trim())}
+          onKeyDown={e => e.key === "Enter" && doSearch(q.trim())}
           placeholder="Cari lagu atau artis..."
           aria-label="Cari musik di YouTube"
           style={{
@@ -460,7 +493,7 @@ const OnlineHome = ({ ytKey, online }) => {
           }}
         />
         <button
-          onClick={() => load(q.trim())}
+          onClick={() => doSearch(q.trim())}
           style={{
             background: "var(--accent)", border: "none", borderRadius: 11,
             padding: "8px 16px", fontSize: 13, fontWeight: 700, color: "#fff", cursor: "pointer",
@@ -469,6 +502,15 @@ const OnlineHome = ({ ytKey, online }) => {
           Cari
         </button>
       </div>
+
+      {recent.length > 0 && (
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, margin: "-6px 0 16px" }}>
+          {recent.map(r => (
+            <button key={r} onClick={() => { setQ(r); doSearch(r); }} style={{ ...chipStyle(false), padding: "6px 12px", fontSize: 12 }}>{r}</button>
+          ))}
+          <button onClick={() => { setRecent([]); try { localStorage.removeItem("sicac-recent"); } catch (_) {} }} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.45)", fontSize: 12, cursor: "pointer" }}>Hapus</button>
+        </div>
+      )}
 
       {/* Section label */}
       <div className="disp" style={{ fontSize: 18, fontWeight: 700, color: "#fff", marginBottom: 12 }}>
@@ -565,6 +607,26 @@ const getLevelInfo = (xp) => {
   const toNext = isMax ? 0 : XP_PER_LEVEL - (xp % XP_PER_LEVEL);
   return { ...lvl, idx, xp, pct, next, level, isMax, levelPct, toNext };
 };
+// ── Statistik mendengarkan & pencapaian ──
+const dayKey = (d = new Date()) => d.toLocaleDateString("sv-SE");
+const calcStreak = (days = {}) => {
+  let n = 0; const d = new Date();
+  if (!(days[dayKey(d)] > 0)) d.setDate(d.getDate() - 1);
+  while (days[dayKey(d)] > 0) { n++; d.setDate(d.getDate() - 1); }
+  return n;
+};
+const fmtDur = (s = 0) => s >= 3600 ? `${Math.floor(s / 3600)}j ${Math.floor((s % 3600) / 60)}m` : `${Math.floor(s / 60)}m`;
+const ACHIEVEMENTS = [
+  { id: "first",  name: "Langkah Awal",   desc: "Dengarkan 1 menit",       ok: c => c.total >= 60 },
+  { id: "hour",   name: "Satu Jam",       desc: "Total 1 jam mendengarkan", ok: c => c.total >= 3600 },
+  { id: "ten",    name: "Pecinta Musik",  desc: "Total 10 jam",            ok: c => c.total >= 36000 },
+  { id: "day3",   name: "Konsisten",      desc: "Streak 3 hari",           ok: c => c.streak >= 3 },
+  { id: "day7",   name: "Seminggu Penuh", desc: "Streak 7 hari",           ok: c => c.streak >= 7 },
+  { id: "lib10",  name: "Kolektor",       desc: "10 lagu di Library",      ok: c => c.songs >= 10 },
+  { id: "like5",  name: "Penyuka Berat",  desc: "5 lagu favorit",          ok: c => c.liked >= 5 },
+  { id: "lv100",  name: "Veteran",        desc: "Capai Lv 100",            ok: c => c.level >= 100 },
+];
+
 // Artwork notifikasi untuk lagu lokal (tanpa cover): gradien + inisial
 const makeArtwork = (song) => {
   try {
@@ -617,6 +679,9 @@ const IcChevron  = ({ s = 20 }) => <Svg s={s}><path d="m9.5 5.5 6.5 6.5-6.5 6.5"
 const IcCheck    = ({ s = 20 }) => <Svg s={s} sw={2.4}><path d="m5.5 12.5 4.2 4.2L18.5 7.5" /></Svg>;
 
 // Logo aplikasi: ekualizer di kotak membulat
+const IcMoon = ({ s = 20 }) => <Svg s={s}><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" /></Svg>;
+const IcQueue = ({ s = 20 }) => <Svg s={s}><path d="M4 6h16M4 12h10M4 18h7" /><path d="m16 15 5 3-5 3z" /></Svg>;
+const IcExternal = ({ s = 20 }) => <Svg s={s}><path d="M14 4h6v6" /><path d="M20 4 10 14" /><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" /></Svg>;
 const Logo = ({ s = 30 }) => (
   <div aria-hidden="true" style={{ width: s, height: s, borderRadius: s * 0.3, flexShrink: 0, background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 4px 14px rgba(var(--accent-rgb),0.45)" }}>
     <svg width={s * 0.6} height={s * 0.6} viewBox="0 0 24 24" fill="#fff"><rect x="3" y="9" width="3.4" height="7" rx="1.7" /><rect x="8.2" y="4" width="3.4" height="16" rx="1.7" /><rect x="13.4" y="7" width="3.4" height="10" rx="1.7" /><rect x="18.6" y="10" width="3.4" height="4" rx="1.7" /></svg>
@@ -731,6 +796,7 @@ const usePlayer = (songs) => {
   const [volume, setVolume]           = useState(80);
   const [shuffle, setShuffle]         = useState(false);
   const [repeat, setRepeat]           = useState(false);
+  const [rate, setRate]               = useState(1);
   const audioRef = useRef(null);
 
   const currentSong = currentIdx !== null ? songs[currentIdx] : null;
@@ -765,11 +831,15 @@ const usePlayer = (songs) => {
     const audio = audioRef.current;
     if (!audio || currentIdx === null || !songs[currentIdx]) return;
     const song = songs[currentIdx];
-    if (!song.url) return;
+    if (!song.url || audio._url === song.url) return;   // jangan muat ulang saat daftar lagu berubah (mis. klik favorit)
+    audio._url = song.url;
     audio.src = song.url;
     audio.load();
     if (isPlaying) audio.play().catch(() => {});
   }, [currentIdx, songs]);
+
+  // Kecepatan putar
+  useEffect(() => { if (audioRef.current) audioRef.current.playbackRate = rate; }, [rate, currentIdx]);
 
   // Sync repeat flag to audio
   useEffect(() => {
@@ -803,6 +873,7 @@ const usePlayer = (songs) => {
     const song = songs[idx];
     if (!song?.url) return;
     setCurrentIdx(idx);
+    audio._url = song.url;
     audio.src = song.url;
     audio.load();
     audio.play().catch(() => {});
@@ -828,14 +899,14 @@ const usePlayer = (songs) => {
 
   const stop = useCallback(() => {
     const audio = audioRef.current;
-    if (audio) { audio.pause(); audio.removeAttribute("src"); audio.load(); }
+    if (audio) { audio.pause(); audio._url = null; audio.removeAttribute("src"); audio.load(); }
     setIsPlaying(false); setCurrentIdx(null); setProgress(0); setDuration(0);
   }, []);
 
   return {
     pause, stop,
     currentSong, currentIdx, isPlaying, progress, duration,
-    volume, setVolume, shuffle, setShuffle, repeat, setRepeat,
+    volume, setVolume, shuffle, setShuffle, repeat, setRepeat, rate, setRate,
     togglePlay, playNext, playPrev, selectSong, seek,
   };
 };
@@ -994,9 +1065,24 @@ const BannerEditor = ({ banner, onSave, onClose }) => {
 };
 
 // ─── HOME SCREEN ───────────────────────────────────────────────────────────
-const HomeScreen = ({ player, online, songs, setSongs, profile, banner, setBanner, onEditBanner, ytKey }) => {
+const HomeScreen = ({ player, online, songs, setSongs, profile, banner, setBanner, onEditBanner, ytKey, listen }) => {
   const { currentSong, selectSong } = player;
   const [mode, setMode] = useState("library");
+  const [libQ, setLibQ] = useState("");
+  const [sortBy, setSortBy] = useState("asli");
+  const [onlyLiked, setOnlyLiked] = useState(false);
+  const SORTS = { asli: "Urutan asli", judul: "Judul A–Z", artis: "Artis A–Z" };
+  const nextSort = { asli: "judul", judul: "artis", artis: "asli" };
+  const todaySec = listen?.days?.[dayKey()] || 0;
+  const streak = calcStreak(listen?.days);
+  const shown = songs.map((s, i) => ({ s, i }))
+    .filter(({ s }) => (!onlyLiked || s.liked) && (!libQ.trim() || `${s.title} ${s.artist}`.toLowerCase().includes(libQ.trim().toLowerCase())))
+    .sort((a, b) => sortBy === "judul" ? (a.s.title || "").localeCompare(b.s.title || "") : sortBy === "artis" ? (a.s.artist || "").localeCompare(b.s.artist || "") : 0);
+  const playShuffled = () => {
+    if (!shown.length) return;
+    player.setShuffle(true);
+    selectSong(shown[Math.floor(Math.random() * shown.length)].i);
+  };
   const levelInfo = getLevelInfo(profile.xp);
 
   const toggleLike = (id) => setSongs(prev => prev.map(s => s.id === id ? { ...s, liked: !s.liked } : s));
@@ -1069,6 +1155,16 @@ const HomeScreen = ({ player, online, songs, setSongs, profile, banner, setBanne
         </div>
       </div>
 
+      {/* Ringkasan mendengarkan */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, marginBottom: 16 }}>
+        {[["Hari ini", fmtDur(todaySec)], ["Streak", `${streak} hari`], ["Total", fmtDur(listen?.total || 0)]].map(([l, v]) => (
+          <div key={l} style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 16, padding: "10px 12px" }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: "#fff" }}>{v}</div>
+            <div style={{ fontSize: 10.5, color: "rgba(255,255,255,0.55)", marginTop: 2 }}>{l}</div>
+          </div>
+        ))}
+      </div>
+
       <div role="tablist" style={{ display: "flex", gap: 4, padding: 4, borderRadius: 16, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.05)", marginBottom: 18 }}>
         {[["library", "Library"], ["online", "Online"]].map(([k, l]) => (
           <button key={k} role="tab" aria-selected={mode === k} onClick={() => setMode(k)} style={{
@@ -1085,9 +1181,27 @@ const HomeScreen = ({ player, online, songs, setSongs, profile, banner, setBanne
         <>
           <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", margin: "2px 2px 12px" }}>
             <div className="disp" style={{ fontSize: 20, fontWeight: 700, color: "#fff" }}>Your library</div>
-            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.5)" }}>{songs.length} lagu</div>
+            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.5)" }}>{shown.length === songs.length ? `${songs.length} lagu` : `${shown.length} dari ${songs.length}`}</div>
           </div>
-          {songs.map((s, i) => (
+
+          <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+            <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", borderRadius: 14, padding: "0 12px", color: "rgba(255,255,255,0.6)" }}>
+              <IcSearch s={16} />
+              <input value={libQ} onChange={e => setLibQ(e.target.value)} placeholder="Cari di library..." aria-label="Cari lagu di library"
+                style={{ flex: 1, minWidth: 0, background: "transparent", border: "none", outline: "none", color: "#fff", fontSize: 14, padding: "11px 0" }} />
+              {libQ && <button aria-label="Hapus pencarian" onClick={() => setLibQ("")} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.6)", cursor: "pointer", display: "flex", padding: 0 }}><IcClose s={14} /></button>}
+            </div>
+            <button onClick={playShuffled} aria-label="Putar acak semua" style={{ display: "flex", alignItems: "center", gap: 7, background: "var(--accent)", border: "none", borderRadius: 14, padding: "0 14px", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+              <IcShuffle s={16} /> Acak
+            </button>
+          </div>
+          <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+            <button onClick={() => setOnlyLiked(v => !v)} aria-pressed={onlyLiked} style={chipStyle(onlyLiked)}>Favorit</button>
+            <button onClick={() => setSortBy(s => nextSort[s])} style={chipStyle(false)}>{SORTS[sortBy]}</button>
+          </div>
+
+          {shown.length === 0 && <div style={{ textAlign: "center", padding: "30px 0", fontSize: 13, color: "rgba(255,255,255,0.5)" }}>Tidak ada lagu yang cocok.</div>}
+          {shown.map(({ s, i }) => (
             <SongRow
               key={s.id} song={s}
               isActive={currentSong?.id === s.id}
@@ -1279,7 +1393,7 @@ const HistoryScreen = ({ history }) => {
 };
 
 // ─── PROFILE SCREEN ────────────────────────────────────────────────────────
-const ProfileScreen = ({ profile, setProfile, songs, profileBanner, setProfileBanner }) => {
+const ProfileScreen = ({ profile, setProfile, songs, profileBanner, setProfileBanner, listen }) => {
   const fileRef = useRef();
   const [frameOpen, setFrameOpen] = useState(false);
   const levelInfo = getLevelInfo(profile.xp);
@@ -1295,6 +1409,16 @@ const ProfileScreen = ({ profile, setProfile, songs, profileBanner, setProfileBa
     r.readAsDataURL(file);
   };
 
+  const lDays = listen?.days || {};
+  const lTotal = listen?.total || 0;
+  const lStreak = calcStreak(lDays);
+  const last7 = Array.from({ length: 7 }, (_, k) => {
+    const d = new Date(); d.setDate(d.getDate() - (6 - k));
+    return { key: dayKey(d), label: ["M", "S", "S", "R", "K", "J", "S"][d.getDay()], sec: lDays[dayKey(d)] || 0 };
+  });
+  const maxSec = Math.max(60, ...last7.map(x => x.sec));
+  const achCtx = { total: lTotal, streak: lStreak, songs: songs.length, liked: songs.filter(s => s.liked).length, level: levelInfo.level };
+  const achDone = ACHIEVEMENTS.filter(a => a.ok(achCtx)).length;
   const stats = [
     { label: "Songs", value: songs.length },
     { label: "Liked", value: songs.filter(s => s.liked).length },
@@ -1396,6 +1520,46 @@ const ProfileScreen = ({ profile, setProfile, songs, profileBanner, setProfileBa
             <div style={{ fontSize: 11, color: "rgba(255,255,255,0.64)", marginTop: 2 }}>{s.label}</div>
           </div>
         ))}
+      </div>
+
+      {/* Statistik mendengarkan */}
+      <div style={{ background: "rgba(255,255,255,0.06)", borderRadius: 20, padding: 14, border: "1px solid rgba(255,255,255,0.06)", marginBottom: 14 }}>
+        <div className="disp" style={{ fontSize: 18, fontWeight: 700, color: "#fff", marginBottom: 12 }}>Statistik mendengarkan</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 8, marginBottom: 16 }}>
+          {[["Hari ini", fmtDur(lDays[dayKey()] || 0)], ["Streak", `${lStreak} hari`], ["Total", fmtDur(lTotal)]].map(([l, v]) => (
+            <div key={l}><div style={{ fontSize: 17, fontWeight: 700, color: "#fff" }}>{v}</div><div style={{ fontSize: 11, color: "rgba(255,255,255,0.55)", marginTop: 2 }}>{l}</div></div>
+          ))}
+        </div>
+        <div style={{ display: "flex", alignItems: "flex-end", gap: 8, height: 86 }}>
+          {last7.map(x => (
+            <div key={x.key} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6, height: "100%", justifyContent: "flex-end" }}>
+              <div title={fmtDur(x.sec)} style={{ width: "100%", maxWidth: 28, height: `${Math.max(6, (x.sec / maxSec) * 100)}%`, minHeight: 5, borderRadius: 8, background: x.sec > 0 ? "linear-gradient(to top,var(--accent),var(--accent-soft))" : "rgba(255,255,255,0.1)" }} />
+              <div style={{ fontSize: 10, color: x.key === dayKey() ? "var(--accent-soft)" : "rgba(255,255,255,0.5)", fontWeight: x.key === dayKey() ? 700 : 500 }}>{x.label}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Pencapaian */}
+      <div style={{ background: "rgba(255,255,255,0.06)", borderRadius: 20, padding: 14, border: "1px solid rgba(255,255,255,0.06)", marginBottom: 14 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 12 }}>
+          <div className="disp" style={{ fontSize: 18, fontWeight: 700, color: "#fff" }}>Pencapaian</div>
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.55)" }}>{achDone}/{ACHIEVEMENTS.length}</div>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+          {ACHIEVEMENTS.map(a => {
+            const ok = a.ok(achCtx);
+            return (
+              <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 11px", borderRadius: 14, background: ok ? "rgba(var(--accent-rgb),0.14)" : "rgba(255,255,255,0.04)", border: ok ? "1px solid rgba(var(--accent-rgb),0.35)" : "1px solid rgba(255,255,255,0.06)", opacity: ok ? 1 : 0.6 }}>
+                <div style={{ width: 28, height: 28, borderRadius: "50%", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: ok ? "var(--accent)" : "rgba(255,255,255,0.1)", color: "#fff" }}>{ok ? <IcCheck s={15} /> : <IcLock s={13} />}</div>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 12.5, fontWeight: 700, color: "#fff", lineHeight: 1.2 }}>{a.name}</div>
+                  <div style={{ fontSize: 10.5, color: "rgba(255,255,255,0.55)", marginTop: 2, lineHeight: 1.25 }}>{a.desc}</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {/* Milestones */}
@@ -1502,7 +1666,7 @@ const FloatingPlayer = ({ s }) => {
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 11, padding: "10px 10px 12px 10px" }}>
           {/* Art + equalizer */}
-          <div onClick={s.onExpand || undefined} style={{ position: "relative", width: 48, height: 48, flexShrink: 0, cursor: s.onExpand ? "pointer" : "default" }}>
+          <div onClick={s.onExpand || s.onSheet} style={{ position: "relative", width: 48, height: 48, flexShrink: 0, cursor: "pointer" }}>
             {s.thumb
               ? <div style={{ width: 48, height: 48, borderRadius: 14, background: `url(${s.thumb}) center/cover`, boxShadow: "0 4px 14px rgba(0,0,0,.45)" }} />
               : <AlbumArt song={s.song} size={48} style={{ borderRadius: 14 }} />}
@@ -1514,11 +1678,12 @@ const FloatingPlayer = ({ s }) => {
           </div>
 
           {/* Title */}
-          <div onClick={s.onExpand || undefined} style={{ flex: 1, minWidth: 0, cursor: s.onExpand ? "pointer" : "default" }}>
+          <div onClick={s.onSheet} style={{ flex: 1, minWidth: 0, cursor: "pointer" }}>
             <div style={{ fontSize: 14, fontWeight: 700, color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.title}</div>
             <div style={{ fontSize: 11.5, color: "rgba(255,255,255,0.58)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               <span style={{ color: "var(--accent-soft)", fontWeight: 600 }}>{s.kind === "online" ? "Online" : "Library"}</span>
               {s.subtitle ? ` · ${s.subtitle}` : ""}
+              {s.sleepLeft ? ` · Timer ${fmt(s.sleepLeft)}` : ""}
             </div>
           </div>
 
@@ -1542,8 +1707,84 @@ const FloatingPlayer = ({ s }) => {
   );
 };
 
+// ─── PLAYER SHEET (antrean, timer tidur, kecepatan) ───────────────────────
+const SPEEDS = [0.75, 1, 1.25, 1.5, 2];
+const SLEEP_OPTS = [15, 30, 45, 60];
+const chipStyle = (on) => ({ border: "none", cursor: "pointer", padding: "8px 14px", borderRadius: 99, fontSize: 12.5, fontWeight: 700, color: on ? "#fff" : "rgba(255,255,255,0.78)", background: on ? "var(--accent)" : "rgba(255,255,255,0.08)" });
+const SheetLabel = ({ children, right }) => (
+  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", margin: "18px 2px 10px" }}>
+    <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 0.6, color: "rgba(255,255,255,0.5)", textTransform: "uppercase" }}>{children}</div>
+    {right}
+  </div>
+);
+const PlayerSheet = ({ s, queue, sleepLeft, onSleep, rate, onRate, ytUrl, onFull, onCover, onResetCover, onClose }) => (
+  <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 300, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "flex-end" }}>
+    <div role="dialog" aria-modal="true" aria-label="Pemutar" onClick={e => e.stopPropagation()} style={{
+      width: "100%", maxHeight: "82dvh", overflowY: "auto", boxSizing: "border-box",
+      background: "var(--panel)", borderRadius: "26px 26px 0 0", border: "1px solid rgba(255,255,255,0.1)", borderBottom: "none",
+      padding: "10px 18px calc(env(safe-area-inset-bottom,0px) + 22px)", animation: "fpIn .3s cubic-bezier(.22,1,.36,1) both",
+    }}>
+      <div style={{ width: 40, height: 4, borderRadius: 4, background: "rgba(255,255,255,0.2)", margin: "0 auto 14px" }} />
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        {s.thumb ? <div style={{ width: 54, height: 54, borderRadius: 16, background: `url(${s.thumb}) center/cover`, flexShrink: 0 }} /> : <AlbumArt song={s.song} size={54} style={{ borderRadius: 16 }} />}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.title}</div>
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.subtitle}</div>
+        </div>
+        <button aria-label="Tutup" onClick={onClose} style={{ ...rowIconBtn, background: "rgba(255,255,255,0.1)", color: "#fff", borderRadius: "50%" }}><IcClose s={15} /></button>
+      </div>
+
+      <SheetLabel right={sleepLeft ? <span style={{ fontSize: 12, color: "var(--accent-soft)", fontWeight: 700 }}>Berhenti dalam {fmt(sleepLeft)}</span> : null}>Timer tidur</SheetLabel>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+        <button onClick={() => onSleep(null)} style={chipStyle(!sleepLeft)}>Mati</button>
+        {SLEEP_OPTS.map(m => <button key={m} onClick={() => onSleep(m)} style={chipStyle(false)}>{m} menit</button>)}
+      </div>
+
+      <SheetLabel>Kecepatan putar</SheetLabel>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+        {SPEEDS.map(r => <button key={r} onClick={() => onRate(r)} style={chipStyle(rate === r)}>{r}x</button>)}
+      </div>
+
+      {(onFull || ytUrl) && (
+        <div style={{ display: "flex", gap: 8, marginTop: 18 }}>
+          {onFull && <button onClick={onFull} style={{ ...chipStyle(false), flex: 1, padding: "12px 0", borderRadius: 14 }}>Pemutar penuh</button>}
+          {ytUrl && <button onClick={() => window.open(ytUrl, "_blank")} style={{ ...chipStyle(false), flex: 1, padding: "12px 0", borderRadius: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}><IcExternal s={15} /> Buka di YouTube</button>}
+        </div>
+      )}
+
+      {onCover && (
+        <>
+          <SheetLabel>Gambar lagu</SheetLabel>
+          <div style={{ display: "flex", gap: 8 }}>
+            <label style={{ ...chipStyle(false), flex: 1, padding: "12px 0", borderRadius: 14, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+              <IcCamera s={15} /> Ubah gambar
+              <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => { const f = e.target.files?.[0]; e.target.value = ""; if (f) onCover(f); }} />
+            </label>
+            {s.song?.cover && <button onClick={onResetCover} style={{ ...chipStyle(false), flex: 1, padding: "12px 0", borderRadius: 14 }}>Reset gambar</button>}
+          </div>
+        </>
+      )}
+
+      <SheetLabel right={<span style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>{queue.length} lagu</span>}>Berikutnya</SheetLabel>
+      {queue.length === 0 && <div style={{ fontSize: 13, color: "rgba(255,255,255,0.45)", padding: "6px 2px" }}>Tidak ada lagu berikutnya.</div>}
+      {queue.map(q => (
+        <div key={q.key} role="button" tabIndex={0} onClick={q.onPick}
+          onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); q.onPick(); } }}
+          style={{ display: "flex", alignItems: "center", gap: 12, padding: "7px 6px", borderRadius: 14, cursor: "pointer" }}>
+          {q.thumb ? <div style={{ width: 40, height: 40, borderRadius: 12, background: `url(${q.thumb}) center/cover`, flexShrink: 0 }} /> : <AlbumArt song={q.song} size={40} style={{ borderRadius: 12 }} />}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 13.5, fontWeight: 600, color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{q.title}</div>
+            <div style={{ fontSize: 11.5, color: "rgba(255,255,255,0.5)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{q.subtitle}</div>
+          </div>
+          <span style={{ color: "rgba(255,255,255,0.35)", display: "flex" }}><IcPlay s={14} /></span>
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
 // ─── FULL PLAYER ───────────────────────────────────────────────────────────
-const FullPlayer = ({ player, songs, setSongs, onClose, playerBg, setPlayerBg }) => {
+const FullPlayer = ({ player, songs, setSongs, onClose, onMore, playerBg, setPlayerBg }) => {
   const { currentSong, isPlaying, progress, duration, volume, setVolume, shuffle, setShuffle, repeat, setRepeat, togglePlay, playNext, playPrev, seek } = player;
   if (!currentSong) return null;
   const song   = songs.find(s => s.id === currentSong.id) || currentSong;
@@ -1593,6 +1834,19 @@ const FullPlayer = ({ player, songs, setSongs, onClose, playerBg, setPlayerBg })
           <div style={{ position: "absolute", left: 0, top: 0, width: 248, height: 248, borderRadius: 24, overflow: "hidden", boxShadow: "0 24px 50px rgba(0,0,0,0.6)", transform: isPlaying ? "scale(1)" : "scale(0.94)", transition: "transform 0.45s ease" }}>
             <AlbumArt song={currentSong} size={248} style={{ borderRadius: 24 }} />
           </div>
+          <div style={{ position: "absolute", left: 12, bottom: 12, display: "flex", gap: 6 }}>
+            <label aria-label="Ubah gambar lagu" style={{ ...glass, background: "rgba(0,0,0,0.55)", cursor: "pointer" }}>
+              <IcCamera s={16} />
+              <input type="file" accept="image/*" style={{ display: "none" }} onChange={async e => {
+                const f = e.target.files?.[0]; e.target.value = "";
+                if (!f) return;
+                try { const u = await readCover(f); setSongs(prev => prev.map(x => x.id === currentSong.id ? { ...x, cover: u } : x)); } catch (_) {}
+              }} />
+            </label>
+            {currentSong.cover && (
+              <button aria-label="Hapus gambar lagu" onClick={() => setSongs(prev => prev.map(x => x.id === currentSong.id ? { ...x, cover: null } : x))} style={{ ...glass, background: "rgba(0,0,0,0.55)" }}><IcClose s={15} /></button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -1635,17 +1889,21 @@ const FullPlayer = ({ player, songs, setSongs, onClose, playerBg, setPlayerBg })
           onChange={e => setVolume(Number(e.target.value))} style={{ flex: 1, ...track(volume) }} />
         <span style={{ fontSize: 12, color: "rgba(255,255,255,0.7)", minWidth: 32, textAlign: "right" }}>{volume}%</span>
       </div>
+
+      <button onClick={onMore} style={{ width: "100%", marginTop: 12, display: "flex", alignItems: "center", justifyContent: "center", gap: 10, background: "rgba(255,255,255,0.08)", border: "none", borderRadius: 16, padding: "13px 16px", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
+        <IcQueue s={17} /> Antrean · Timer tidur · Kecepatan
+      </button>
     </div>
   );
 };
 
 // ─── BOTTOM NAV ────────────────────────────────────────────────────────────
 const TABS = [
-  { id: "home",     label: "Home",     Icon: IcHome },
-  { id: "upload",   label: "Upload",   Icon: IcUpload },
-  { id: "history",  label: "History",  Icon: IcHistory },
-  { id: "profile",  label: "Profile",  Icon: IcUser },
-  { id: "settings", label: "Settings", Icon: IcSettings },
+  { id: "home",     label: "Beranda",     Icon: IcHome },
+  { id: "upload",   label: "Unggah",   Icon: IcUpload },
+  { id: "history",  label: "Riwayat",  Icon: IcHistory },
+  { id: "profile",  label: "Profil",  Icon: IcUser },
+  { id: "settings", label: "Setelan", Icon: IcSettings },
 ];
 const BottomNav = ({ active, onChange }) => (
   <div style={{ position: "fixed", left: 14, right: 14, bottom: "calc(env(safe-area-inset-bottom,0px) + 12px)", zIndex: 50, height: 64, display: "flex", borderRadius: 28, background: "var(--mini)", backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)", border: "1px solid rgba(255,255,255,0.14)", boxShadow: "0 14px 36px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.08)" }}>
@@ -1664,12 +1922,15 @@ const BottomNav = ({ active, onChange }) => (
 // ─── HEADER ────────────────────────────────────────────────────────────────
 const Header = ({ tab, googleUser, onLogout }) => {
   const [showMenu, setShowMenu] = useState(false);
-  const titles = { home: "SICAC", upload: "Upload", history: "History", profile: "Profile", settings: "Settings" };
+  const titles = { home: "SICAC", upload: "Unggah", history: "Riwayat", profile: "Profil", settings: "Setelan" };
   return (
     <div style={{ position: "sticky", top: "env(safe-area-inset-top,0px)", zIndex: 30, background: "rgba(var(--bg-rgb),0.92)", backdropFilter: "blur(20px)", padding: "14px 18px 10px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         {tab === "home" && <Logo s={32} />}
-        <div className="disp" style={{ fontSize: tab === "home" ? 28 : 22, fontWeight: 700, color: "#fff" }}>{titles[tab]}</div>
+        <div>
+          {tab === "home" && <div style={{ fontSize: 11.5, color: "rgba(255,255,255,0.55)", marginBottom: 1 }}>Halo, {(googleUser?.name || "Tamu").split(" ")[0]}</div>}
+          <div className="disp" style={{ fontSize: tab === "home" ? 28 : 22, fontWeight: 700, color: "#fff", lineHeight: 1.05 }}>{titles[tab]}</div>
+        </div>
       </div>
 
       {/* Google user avatar + menu */}
@@ -1825,6 +2086,8 @@ export default function SicacApp() {
   const [showBannerEdit, setShowBanner] = useState(false);
   const [songs, setSongs]               = useState([]);
   const [history, setHistory]           = useState([]);
+  const [stats, setStats]               = useState({ total: 0, days: {} });
+  const [showSheet, setShowSheet]        = useState(false);
   const [profile, setProfile]           = useState({ name: "My Name", bio: "Music is life", avatar: null, xp: 0 });
   const [banner, setBanner]             = useState({
     type: "gradient",
@@ -1845,6 +2108,7 @@ export default function SicacApp() {
         if (saved) {
           if (Array.isArray(saved.songs)) setSongs(saved.songs);
           if (Array.isArray(saved.history)) setHistory(saved.history);
+          if (saved.stats && typeof saved.stats === "object") setStats({ total: saved.stats.total || 0, days: saved.stats.days || {} });
           if (saved.profile && typeof saved.profile === "object") {
             setProfile(prev => ({ ...prev, ...saved.profile }));
           }
@@ -1869,11 +2133,11 @@ export default function SicacApp() {
   // IndexedDB avoids localStorage's small quota and persists uploaded audio/images.
   useEffect(() => {
     if (!persistenceReady) return;
-    const payload = { version: 1, songs, history, profile, banner, profileBanner, playerBg, themeId };
+    const payload = { version: 1, songs, history, stats, profile, banner, profileBanner, playerBg, themeId };
     writeSicacState(payload).catch(error => {
       console.error("SICAC: gagal menyimpan data", error);
     });
-  }, [persistenceReady, songs, history, profile, banner, profileBanner, playerBg, themeId]);
+  }, [persistenceReady, songs, history, stats, profile, banner, profileBanner, playerBg, themeId]);
 
   const player = usePlayer(songs);
   const online = useOnlinePlayer();
@@ -1885,6 +2149,22 @@ export default function SicacApp() {
   useEffect(() => { if (online.playing) { setActiveSrc("online"); if (player.isPlaying) player.pause(); } }, [online.playing]);
   useEffect(() => { if (player.isPlaying) { setActiveSrc("library"); if (online.playing) online.pause(); } }, [player.isPlaying]);
 
+  // Timer tidur
+  const [sleepEnd, setSleepEnd] = useState(null);
+  const [sleepLeft, setSleepLeft] = useState(0);
+  useEffect(() => {
+    if (!sleepEnd) { setSleepLeft(0); return; }
+    const tick = () => {
+      const left = Math.round((sleepEnd - Date.now()) / 1000);
+      if (left <= 0) { online.pause(); player.pause(); setSleepEnd(null); setSleepLeft(0); }
+      else setSleepLeft(left);
+    };
+    tick();
+    const t = setInterval(tick, 1000);
+    return () => clearInterval(t);
+  }, [sleepEnd]);
+  const startSleep = (min) => setSleepEnd(min ? Date.now() + min * 60000 : null);
+
   const src =
     activeSrc === "online" && online.track ? "online" :
     activeSrc === "library" && player.currentSong ? "library" :
@@ -1894,11 +2174,13 @@ export default function SicacApp() {
     key: "online", kind: "online", title: online.track.title, subtitle: online.track.channel, thumb: online.track.thumb,
     playing: online.playing, progress: online.progress, duration: online.duration,
     onToggle: online.toggle, onNext: online.next, onPrev: online.prev, onClose: online.stop, onExpand: null,
+    onSheet: () => setShowSheet(true), sleepLeft,
   } : src === "library" ? {
     key: "library", kind: "library", title: player.currentSong.title, subtitle: player.currentSong.artist, song: player.currentSong,
     playing: player.isPlaying, progress: player.progress, duration: player.duration,
     onToggle: player.togglePlay, onNext: player.playNext, onPrev: player.playPrev,
     onClose: () => { setShowFull(false); player.stop(); }, onExpand: () => setShowFull(true),
+    onSheet: () => setShowSheet(true), sleepLeft,
   } : null;
 
   // ── XP & level: +1 XP tiap 5 detik mendengarkan (offline/online) ──
@@ -1907,13 +2189,50 @@ export default function SicacApp() {
     setProfile(p => ({ ...p, xp: (p.xp || 0) + n }));
   }, [persistenceReady]);
 
+  const addStats = useCallback((n) => setStats(s => {
+    const k = dayKey();
+    return { total: (s.total || 0) + n, days: { ...(s.days || {}), [k]: ((s.days || {})[k] || 0) + n } };
+  }), []);
+
   const listening = online.playing || player.isPlaying;
   useEffect(() => {
     if (!listening || !persistenceReady) return;
     let sec = 0;
-    const t = setInterval(() => { if (++sec % 5 === 0) addXp(1); }, 1000);
+    const t = setInterval(() => { if (++sec % 5 === 0) { addXp(1); addStats(5); } }, 1000);
     return () => clearInterval(t);
-  }, [listening, persistenceReady, addXp]);
+  }, [listening, persistenceReady, addXp, addStats]);
+
+  // Layar tetap menyala selama lagu Online diputar (saat app terbuka)
+  useEffect(() => {
+    if (!online.playing || !navigator.wakeLock) return;
+    let lock = null;
+    const req = async () => { try { lock = await navigator.wakeLock.request("screen"); } catch (_) {} };
+    req();
+    const onVis = () => { if (document.visibilityState === "visible") req(); };
+    document.addEventListener("visibilitychange", onVis);
+    return () => { document.removeEventListener("visibilitychange", onVis); try { lock?.release(); } catch (_) {} };
+  }, [online.playing]);
+
+  // Antrean "Berikutnya"
+  const queueItems = (() => {
+    if (src === "online") {
+      const q = online.queue, n = q.length;
+      if (n < 2) return [];
+      return Array.from({ length: Math.min(30, n - 1) }, (_, k) => {
+        const idx = (online.index + 1 + k) % n, t = q[idx];
+        return { key: `${t.id}-${idx}`, title: t.title, subtitle: t.channel, thumb: t.thumb, onPick: () => online.play(q, idx) };
+      });
+    }
+    if (src === "library") {
+      const n = songs.length;
+      if (n < 2 || player.currentIdx == null) return [];
+      return Array.from({ length: Math.min(30, n - 1) }, (_, k) => {
+        const idx = (player.currentIdx + 1 + k) % n, s2 = songs[idx];
+        return { key: `${s2.id}-${idx}`, title: s2.title, subtitle: s2.artist, song: s2, onPick: () => player.selectSong(idx) };
+      });
+    }
+    return [];
+  })();
 
   // Notifikasi naik level
   const lvlRef = useRef(null);
@@ -1960,7 +2279,7 @@ export default function SicacApp() {
         }));
       }
     } catch (_) {}
-  }, [src, online.track?.id, player.currentSong?.id]);
+  }, [src, online.track?.id, player.currentSong?.id, player.currentSong?.cover]);
 
   useEffect(() => {
     if (!src) return;
@@ -2009,11 +2328,11 @@ export default function SicacApp() {
 
       <div style={{ padding: `14px 14px calc(env(safe-area-inset-bottom,0px) + ${floating ? 178 : 106}px)` }}>
         <div style={{ display: tab === "home" ? "block" : "none" }}>
-          <HomeScreen player={player} online={online} songs={songs} setSongs={setSongs} profile={profile} banner={banner} setBanner={setBanner} onEditBanner={() => setShowBanner(true)} ytKey={ytKey} />
+          <HomeScreen listen={stats} player={player} online={online} songs={songs} setSongs={setSongs} profile={profile} banner={banner} setBanner={setBanner} onEditBanner={() => setShowBanner(true)} ytKey={ytKey} />
         </div>
         {tab === "upload"   && <UploadScreen  songs={songs} setSongs={setSongs} />}
         {tab === "history"  && <HistoryScreen history={history} />}
-        {tab === "profile"  && <ProfileScreen profile={profile} setProfile={setProfile} songs={songs} profileBanner={profileBanner} setProfileBanner={setProfileBanner} />}
+        {tab === "profile"  && <ProfileScreen listen={stats} profile={profile} setProfile={setProfile} songs={songs} profileBanner={profileBanner} setProfileBanner={setProfileBanner} />}
         {tab === "settings" && <SettingsScreen banner={banner} setBanner={setBanner} themeId={themeId} setThemeId={setThemeId} />}
       </div>
 
@@ -2023,6 +2342,21 @@ export default function SicacApp() {
       </div>
 
       <FloatingPlayer s={floating} />
+
+      {showSheet && floating && (
+        <PlayerSheet
+          s={floating} queue={queueItems} sleepLeft={sleepLeft} onSleep={startSleep}
+          rate={src === "online" ? online.rate : player.rate}
+          onRate={src === "online" ? online.setRate : player.setRate}
+          ytUrl={src === "online" ? `https://www.youtube.com/watch?v=${online.track.id}` : null}
+          onFull={src === "library" ? () => { setShowSheet(false); setShowFull(true); } : null}
+          onCover={src === "library" && player.currentSong ? async (f) => {
+            try { const u = await readCover(f); const id = player.currentSong.id; setSongs(prev => prev.map(x => x.id === id ? { ...x, cover: u } : x)); } catch (_) {}
+          } : null}
+          onResetCover={() => { const id = player.currentSong?.id; if (id) setSongs(prev => prev.map(x => x.id === id ? { ...x, cover: null } : x)); }}
+          onClose={() => setShowSheet(false)}
+        />
+      )}
 
       {lvlToast && (
         <div role="status" style={{ position: "fixed", top: "calc(env(safe-area-inset-top,0px) + 70px)", left: 0, right: 0, zIndex: 120, display: "flex", justifyContent: "center", pointerEvents: "none" }}>
@@ -2037,7 +2371,7 @@ export default function SicacApp() {
       )}
       <BottomNav active={tab} onChange={setTab} />
 
-      {showFullPlayer  && <FullPlayer player={player} songs={songs} setSongs={setSongs} onClose={() => setShowFull(false)} playerBg={playerBg} setPlayerBg={setPlayerBg} />}
+      {showFullPlayer  && <FullPlayer player={player} songs={songs} setSongs={setSongs} onClose={() => setShowFull(false)} onMore={() => setShowSheet(true)} playerBg={playerBg} setPlayerBg={setPlayerBg} />}
       {showBannerEdit  && <BannerEditor banner={banner} onSave={setBanner} onClose={() => setShowBanner(false)} />}
     </div>
   );
