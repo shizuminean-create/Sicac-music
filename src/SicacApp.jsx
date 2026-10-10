@@ -214,12 +214,14 @@ const OnlineHome = ({ ytKey }) => {
         </button>
       ))}
       {watch && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 300, background: "rgba(0,0,0,0.9)", display: "flex", flexDirection: "column", justifyContent: "center", padding: 14 }}>
+        <div style={{ marginTop: 14, marginBottom: 16, padding: 10, borderRadius: 16, background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+            <div style={{ flex: 1, minWidth: 0, color: "#fff", fontSize: 14, fontWeight: 650, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{watch.title}</div>
+            <button onClick={() => setWatch(null)} aria-label="Hentikan pemutaran online" style={{ background: "rgba(255,255,255,0.12)", border: 0, borderRadius: 10, padding: "8px 11px", color: "#fff", cursor: "pointer" }}>Stop</button>
+          </div>
           <iframe title={watch.title} src={`https://www.youtube.com/embed/${watch.id}?autoplay=1&playsinline=1`}
             allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen
-            style={{ width: "100%", aspectRatio: "16/9", border: 0, borderRadius: 14 }} />
-          <div style={{ color: "#fff", fontSize: 15, fontWeight: 600, margin: "12px 2px" }}>{watch.title}</div>
-          <button onClick={() => setWatch(null)} style={{ background: "var(--accent)", border: "none", borderRadius: 12, padding: "12px", fontSize: 14, fontWeight: 700, color: "#fff", cursor: "pointer" }}>Tutup</button>
+            style={{ display: "block", width: "100%", aspectRatio: "16/9", border: 0, borderRadius: 12 }} />
         </div>
       )}
     </div>
@@ -1455,7 +1457,9 @@ export default function SicacApp() {
       <Header tab={tab} />
 
       <div style={{ padding: "14px 14px 0" }}>
-        {tab === "home"     && <HomeScreen    player={player} songs={songs} setSongs={setSongs} profile={profile} banner={banner} setBanner={setBanner} onEditBanner={() => setShowBanner(true)} ytKey={ytKey} />}
+        <div style={{ display: tab === "home" ? "block" : "none" }}>
+          <HomeScreen player={player} songs={songs} setSongs={setSongs} profile={profile} banner={banner} setBanner={setBanner} onEditBanner={() => setShowBanner(true)} ytKey={ytKey} />
+        </div>
         {tab === "upload"   && <UploadScreen  songs={songs} setSongs={setSongs} />}
         {tab === "history"  && <HistoryScreen history={history} />}
         {tab === "profile"  && <ProfileScreen profile={profile} setProfile={setProfile} songs={songs} profileBanner={profileBanner} setProfileBanner={setProfileBanner} />}
