@@ -1,0 +1,19 @@
+/* Hilangkan garis scrollbar di seluruh aplikasi SICAC */
+* {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+*::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
+}
+
+/* Pastikan halaman tetap bisa di-scroll */
+html,
+body,
+#root {
+  overflow-x: hidden;
+}

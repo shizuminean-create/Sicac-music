@@ -1,0 +1,196 @@
+name: Build SICAC Android APK
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-apk:
+    name: Build SICAC Android APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      # 1. Ambil source code
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. Setup Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # 3. Setup Java 21
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      # 4. Setup Android SDK
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v4
+
+      # 5. Terima lisensi Android SDK
+      - name: Accept Android SDK licenses
+        run: sdkmanager --licenses
+
+      # 6. Install Android SDK yang diperlukan
+      - name: Install Android SDK packages
+        run: |
+          sdkmanager \
+            "platform-tools" \
+            "platforms;android-35" \
+            "build-tools;35.0.0"
+
+      # 7. Install dependensi Node.js
+      - name: Install npm dependencies
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
+
+      # 8. Periksa konfigurasi proyek
+      - name: Check project configuration
+        run: |
+          test -f package.json || {
+            echo "::error::package.json tidak ditemukan."
+            exit 1
+          }
+
+          node -e "
+            const p = require('./package.json');
+
+            console.log('Project:', p.name || 'SICAC');
+            console.log('Build script:', p.scripts?.build || 'TIDAK ADA');
+            console.log(
+              'Capacitor CLI:',
+              p.dependencies?.['@capacitor/cli'] ||
+              p.devDependencies?.['@capacitor/cli'] ||
+              'tidak ditemukan'
+            );
+            console.log(
+              'Capacitor Android:',
+              p.dependencies?.['@capacitor/android'] ||
+              p.devDependencies?.['@capacitor/android'] ||
+              'tidak ditemukan'
+            );
+
+            if (!p.scripts?.build) {
+              console.error('Script build tidak ditemukan.');
+              process.exit(1);
+            }
+          "
+
+      # 9. Pastikan YouTube API key tersedia
+      - name: Check YouTube API key
+        env:
+          VITE_YOUTUBE_API_KEY: ${{ secrets.VITE_YOUTUBE_API_KEY }}
+        run: |
+          if [ -z "$VITE_YOUTUBE_API_KEY" ]; then
+            echo "::error::Secret VITE_YOUTUBE_API_KEY kosong atau belum dibuat."
+            exit 1
+          fi
+
+          echo "YouTube API Secret tersedia."
+          echo "Panjang key: ${#VITE_YOUTUBE_API_KEY} karakter."
+
+      # 10. Pastikan Google Client ID tersedia
+      - name: Check Google Client ID
+        env:
+          VITE_GOOGLE_CLIENT_ID: ${{ secrets.VITE_GOOGLE_CLIENT_ID }}
+        run: |
+          if [ -z "$VITE_GOOGLE_CLIENT_ID" ]; then
+            echo "::error::Secret VITE_GOOGLE_CLIENT_ID kosong atau belum dibuat."
+            exit 1
+          fi
+
+          echo "Google Client ID tersedia."
+          echo "Panjang key: ${#VITE_GOOGLE_CLIENT_ID} karakter."
+
+      # 11. Build aplikasi web
+      - name: Build web app
+        env:
+          VITE_YOUTUBE_API_KEY: ${{ secrets.VITE_YOUTUBE_API_KEY }}
+          VITE_GOOGLE_CLIENT_ID: ${{ secrets.VITE_GOOGLE_CLIENT_ID }}
+        run: npm run build
+
+      # 12. Pastikan hasil build tersedia
+      - name: Verify web build
+        run: |
+          test -d dist || {
+            echo "::error::Folder dist tidak ditemukan."
+            exit 1
+          }
+
+          test -f dist/index.html || {
+            echo "::error::dist/index.html tidak ditemukan."
+            exit 1
+          }
+
+          echo "Web build berhasil."
+          find dist -maxdepth 2 -type f | head -100
+
+      # 13. Siapkan proyek Capacitor Android
+      - name: Prepare Capacitor Android project
+        run: |
+          if [ ! -d android ]; then
+            npx cap add android
+          fi
+
+          npx cap sync android
+
+      # 14. Periksa proyek Android
+      - name: Verify Android project
+        run: |
+          test -f android/gradlew || {
+            echo "::error::android/gradlew tidak ditemukan."
+            exit 1
+          }
+
+          if [ ! -f android/app/build.gradle ] && \
+             [ ! -f android/app/build.gradle.kts ]; then
+            echo "::error::Konfigurasi Gradle aplikasi tidak ditemukan."
+            exit 1
+          fi
+
+      # 15. Build APK debug
+      - name: Build debug APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+
+      # 16. Pastikan APK berhasil dibuat
+      - name: Verify APK
+        run: |
+          APK="android/app/build/outputs/apk/debug/app-debug.apk"
+
+          test -f "$APK" || {
+            echo "::error::File APK tidak ditemukan."
+            exit 1
+          }
+
+          ls -lh "$APK"
+          echo "APK berhasil dibuat."
+
+      # 17. Upload APK
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SICAC-Android-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 7

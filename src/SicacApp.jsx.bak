@@ -1,0 +1,2024 @@
+import { useState, useRef, useEffect, useCallback } from "react";
+
+// ─── GOOGLE CLIENT ID ───────────────────────────────────────────────────────
+// Ganti dengan Client ID dari Google Cloud Console Anda
+const G_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com";
+
+// ─── GOOGLE LOGIN SCREEN ────────────────────────────────────────────────────
+const LOGO_ANIM_CSS = `
+@keyframes logoFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:translateY(0)}}
+@keyframes shimmer{0%{background-position:-200% center}100%{background-position:200% center}}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(195,68,102,0)}50%{box-shadow:0 0 0 14px rgba(195,68,102,0)}}
+.login-logo{animation:logoFloat 3.2s ease-in-out infinite}
+.login-card{animation:fadeUp 0.55s cubic-bezier(0.22,1,0.36,1) both}
+.shimmer-text{background:linear-gradient(90deg,rgba(255,255,255,0.5) 0%,#fff 40%,rgba(255,255,255,0.5) 100%);background-size:200% auto;-webkit-background-clip:text;-webkit-text-fill-color:transparent;animation:shimmer 3s linear infinite}
+.g-btn:active{transform:scale(0.97)}
+`;
+
+const GoogleLoginScreen = ({ onLogin }) => {
+  const gBtnRef  = useRef(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError]     = useState("");
+
+  useEffect(() => {
+    // Load Google Identity Services script
+    const loadGSI = () => {
+      if (window.google?.accounts) { initGSI(); return; }
+      const s = document.createElement("script");
+      s.src = "https://accounts.google.com/gsi/client";
+      s.async = true; s.defer = true;
+      s.onload = initGSI;
+      s.onerror = () => setError("Gagal memuat Google Sign-In.");
+      document.head.appendChild(s);
+    };
+
+    const initGSI = () => {
+      try {
+        window.google.accounts.id.initialize({
+          client_id: G_CLIENT_ID,
+          callback: handleCredential,
+          auto_select: false,
+          cancel_on_tap_outside: false,
+        });
+        if (gBtnRef.current) {
+          window.google.accounts.id.renderButton(gBtnRef.current, {
+            type: "standard", theme: "filled_black", size: "large",
+            shape: "pill", width: 280, text: "signin_with",
+          });
+        }
+      } catch (e) {
+        setError("Gagal menginisialisasi Google Sign-In.");
+      }
+    };
+
+    loadGSI();
+  }, []);
+
+  const handleCredential = (response) => {
+    setLoading(true); setError("");
+    try {
+      // Decode JWT payload (tanpa verifikasi — untuk demo/client-side)
+      const payload = JSON.parse(atob(response.credential.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+      const user = {
+        name:    payload.name  || "Pengguna",
+        email:   payload.email || "",
+        avatar:  payload.picture || null,
+        sub:     payload.sub || "",
+      };
+      onLogin(user);
+    } catch(e) {
+      setError("Gagal memproses akun Google. Coba lagi.");
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={{
+      minHeight: "100dvh", display: "flex", flexDirection: "column",
+      alignItems: "center", justifyContent: "center",
+      background: "#0E0C1E", position: "relative", overflow: "hidden",
+    }}>
+      <style>{LOGO_ANIM_CSS}</style>
+
+      {/* Background blobs */}
+      <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
+        <div style={{ position: "absolute", top: "-18%", left: "-15%", width: 420, height: 420, borderRadius: "50%", background: "radial-gradient(circle,rgba(195,68,102,0.18) 0%,transparent 70%)" }} />
+        <div style={{ position: "absolute", bottom: "-12%", right: "-18%", width: 380, height: 380, borderRadius: "50%", background: "radial-gradient(circle,rgba(91,33,182,0.22) 0%,transparent 70%)" }} />
+        <div style={{ position: "absolute", top: "40%", left: "60%", width: 200, height: 200, borderRadius: "50%", background: "radial-gradient(circle,rgba(14,118,188,0.12) 0%,transparent 70%)" }} />
+      </div>
+
+      {/* Grid lines */}
+      <div style={{
+        position: "absolute", inset: 0, pointerEvents: "none", opacity: 0.04,
+        backgroundImage: "linear-gradient(rgba(255,255,255,0.8) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.8) 1px,transparent 1px)",
+        backgroundSize: "48px 48px",
+      }} />
+
+      {/* Card */}
+      <div className="login-card" style={{ width: "100%", maxWidth: 360, padding: "0 24px", position: "relative", zIndex: 2 }}>
+
+        {/* Logo */}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 40 }}>
+          <div className="login-logo" style={{
+            width: 84, height: 84, borderRadius: 26, marginBottom: 20,
+            background: "linear-gradient(145deg,#C34466,#7C3AED)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            boxShadow: "0 0 0 1px rgba(195,68,102,0.3), 0 20px 50px rgba(195,68,102,0.3)",
+          }}>
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="#fff">
+              <rect x="3" y="9" width="3.4" height="7" rx="1.7" />
+              <rect x="8.2" y="4" width="3.4" height="16" rx="1.7" />
+              <rect x="13.4" y="7" width="3.4" height="10" rx="1.7" />
+              <rect x="18.6" y="10" width="3.4" height="4" rx="1.7" />
+            </svg>
+          </div>
+          <div className="shimmer-text" style={{ fontSize: 34, fontWeight: 800, letterSpacing: -1, marginBottom: 6, fontFamily: "-apple-system,BlinkMacSystemFont,'SF Pro Display','Helvetica Neue',system-ui,sans-serif" }}>
+            SICAC
+          </div>
+          <div style={{ fontSize: 14, color: "rgba(255,255,255,0.45)", letterSpacing: 0.5 }}>
+            Music Player
+          </div>
+        </div>
+
+        {/* Login card */}
+        <div style={{
+          background: "rgba(255,255,255,0.05)",
+          border: "1px solid rgba(255,255,255,0.10)",
+          borderRadius: 28, padding: "32px 28px 28px",
+          backdropFilter: "blur(20px)",
+          boxShadow: "0 24px 80px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.08)",
+        }}>
+          <div style={{ textAlign: "center", marginBottom: 28 }}>
+            <div style={{ fontSize: 20, fontWeight: 700, color: "#fff", marginBottom: 6, fontFamily: "-apple-system,BlinkMacSystemFont,'SF Pro Display','Helvetica Neue',system-ui,sans-serif" }}>
+              Selamat datang
+            </div>
+            <div style={{ fontSize: 13, color: "rgba(255,255,255,0.48)", lineHeight: 1.5 }}>
+              Masuk dengan akun Google kamu untuk mulai mendengarkan musik
+            </div>
+          </div>
+
+          {/* Divider */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
+            <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.08)" }} />
+            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.28)", letterSpacing: 1 }}>MASUK DENGAN</div>
+            <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.08)" }} />
+          </div>
+
+          {/* Google button container */}
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 16, minHeight: 44 }}>
+            {loading ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 10, color: "rgba(255,255,255,0.55)", fontSize: 13 }}>
+                <div style={{ width: 18, height: 18, borderRadius: "50%", border: "2px solid rgba(255,255,255,0.15)", borderTopColor: "#C34466", animation: "spin 0.8s linear infinite" }} />
+                Masuk...
+              </div>
+            ) : (
+              <div ref={gBtnRef} className="g-btn" />
+            )}
+          </div>
+
+          {error && (
+            <div style={{ background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 12, padding: "10px 14px", fontSize: 12, color: "#FCA5A5", textAlign: "center", marginBottom: 12 }}>
+              {error}
+            </div>
+          )}
+
+          {/* Guest mode */}
+          <div style={{ textAlign: "center", marginTop: 18 }}>
+            <button
+              onClick={() => onLogin({ name: "Tamu", email: "", avatar: null, sub: "guest", isGuest: true })}
+              style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.35)", fontSize: 12, textDecoration: "underline", textDecorationColor: "rgba(255,255,255,0.15)" }}
+            >
+              Lanjut sebagai Tamu
+            </button>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div style={{ textAlign: "center", marginTop: 24, fontSize: 11, color: "rgba(255,255,255,0.2)", lineHeight: 1.7 }}>
+          Dengan masuk, kamu menyetujui syarat penggunaan.{"\n"}
+          <span style={{ color: "rgba(255,255,255,0.3)" }}>devnsepele © 2025</span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── CONSTANTS ─────────────────────────────────────────────────────────────
+// Ikon: pixel-art dari Level_Rank.zip (stone → admin), disematkan sebagai data URI
+const LEVELS = [
+  { name: "Hum", min: 0, max: 200, color: "#9CA3AF", icon: "data:image/webp;base64,UklGRpoCAABXRUJQVlA4TI0CAAAvF8AFEK8FOZIkQU3WEHzlv536HtBuQG4jyZHEWHH3O/9Nld0JuY0kRxJjZnaf57+fWk7CDQSAgHNv20b7Y3BpRFUWcNLZtgIBBP6+XvL3OLLVffWPNgLVH0/LThHELfqr/57PCyUIIu5xUMKChBDEcEj2oFDCIQQxDMNJOOOw4cEBcfooiGAaShBDQkRYJKFSqSRiOBFMHUQgRo9UKohWX5UKcU/XoYYTqeFQOYdnnz5/fzb+f15t486CGX5jxrndgcF7Cfyub2SYjeFrZl6XbX6X2jF+6YX7k+OsQLz8orQVXDI799br6e4eR54jUMLl+nv+t7c94GNbAAHEkcTJthAKnMF9XovP9/fhbsXv+Tuz3u0u/M7dR2SDfW+N7qHBAhhv4jQMCGrF3/WCl7bwsrY5o5/37mMfj7kBgmTbph0n32Zs27aNz9i2bdu27fwJOhjAORH9nwDFf7s5NYk4taPd3qovIvqsbOhpM+GTLRJDdvCoVLO92e7EgspiUVxQ19y6RvtDcWmi0qKcpMTojqUDTbaHReifnZspEaVFdowH6KvbGvZscQ/JKqwqkYkSO8d21awt9zY0OrvE55dXy8WJwTELn6qme8IzUkPcXSJkcllmbJxk5EXVZHtmRVleVEJmNkKQG4TTXlVN9STW1uQlJyUiYlKzh8vA0T1dRV9QUkpaemJQeFBoWpODe+vghamaMER3l/DMOo8gG8sgG+YVQWmm39bJO8gdvOpbPNysLFytWJcmSovznMM2P3cAe0cPsDa35x0/GyrBzQWXD45egQI7D7DmA+lJodro9owhtLZCMzaFSibB95cagLtTDguYnJO3h0eAa4WmH+dXiPCu0N6YSEAEAx3oEAA=" },
+  { name: "Groove", min: 200, max: 500, color: "#E08A52", icon: "data:image/webp;base64,UklGRgwDAABXRUJQVlA4TP8CAAAvF8AFEFcGOZIkRZJH7zHj/5Q/0U4GnJlSA3Zt266Stfa9gDk2aKmWYQ9+k+FuOJIkKZIicpn3QKVP3zdPYqp0WlvPmFz3x6UzdIpKRmMLxkEWyQY9ddi4RBEfP8/xus0CadsbVINMEVMqeblSAzHQkc/5G+/EmnEakSAClAliADSrohXWtJcN51kWPP8PaAFYQqzEysJc5tg7O5ogUwTEChUtFtxqiRMBKQYoFCiFYE0RERKrgAp2/1BrloAKjEAhsgJQ0YhUUxxjrSEChciiiAARgghWiKiCLFANsJYLc1NLSsOYVvl31rWVhRmjTXVf01hPP0LEmrFc6LKiOK6rPncZqdOjzp4CCo1D/sXAGIogQkQVxVoGdJw3dt+wZtW0FPv69/79gBXBOueoKCNB1CgQVBW56rj+uO7e3eO9p3Xn8/dl/vp9fp8/H0ofR2xMHHtYpZ1WVmijFG5jWt2+t+00s83lz8nv2fPief7Nf/pzgWps7ovTKo/1EefP1/76f93u/2YMEAMALCPZtm3zbPvetm3btm3btrWVtUAS0X+1bdswtjP18sXrf/MOgB+aja3N97oxh9Bie2vb6PqbsYGli4O9Y2BYyInx+ZdjQ5gxFMlDewhihzcMnr8Y2zcd5Bd7M5Ds7NKOvJ03552Vq5PzbmRpd2tJMAJJjCrt7i1LPDY+t62cjC8aaOloS/FCoDnRgx09C4szzRv6doVjdY3dcKQkxs8zp7xudBzW1lTlPinZpffMjvZ2l8Ylg9SuiaV5OJXAxuDVxO3S21IbFnraO2fn4dJ4V2pyEvFQF/uOFp+C+tWVt7GrQUVJjB/36FSbdfaGfhInbX1tKoGPRggiQtk4HT0t/wOJdyBpy31JRBQiOCyUcKiD05CUkhU12cwU0qlzNXwkXRDux9ZUUVa9koeKr9D0PohLma5CI9gBgPkgIwGAwoefPN7eu5GachHBe9JQSkZMFICX1w+8MLN2zyKr7xvKQygn8vXHTW3h5fvY3/PxDjy/j/2vhAA=" },
+  { name: "Rhythm", min: 500, max: 1000, color: "#CBD5E1", icon: "data:image/webp;base64,UklGRvABAABXRUJQVlA4TOQBAAAvF8AFEM1lRP8DcmxrO7bnevDZv212f2X7/4egOCPIhFClz0pps7LtfNbr57ljDyACbi0ABJx/F1WpbNuZIGVeypQZ4BbIALa9gI3u+tS2NYKNCUAA/s+747xJEaVO0fxL2+n+PA8EM6PTPvYVD/n38fgLu5t8Qy4SNUsquc+txdZPbE6JKo/Sk9af3U7i4piyh94e59bRAgD7Y516FgSluTuRE6I06dRCIBpj+eCpD7v5vmAYzxsxjSVyjwEyql8njWgEAIARnnnpEdRYZ6nDjuhDWe8DZVyQnwQAQAiQsDZa0fP/kw+5L1HY6KAkpgCAAACJCGIIJz1hYI7JIjFj5jR6gxAQALQGcQ5ieO0Ex7DD0iBuhtRsyktVXJcggJKXTiuxKVJKi6PSIG4WCevQJIAj77zmMBQ9Z/Np4RcWckQaxIzzYTzLkgxv3HaLCbgwEtHLoKj/4w/pLymgVZsobVjWRVWKRkjYCM7w1mVpDKv5dKYa/emBgVa1UoZknGMgTBjneAs8plxn8YT9hcJ4xqKXJJbqyuviWg0ouK7A5okSjI+re/qPESiEM/iuXk82NOrieuO5D9I4Rt/cLME3/KQuDdYFh4PKXnPYG9UxCfB2Yxv/PwOqQPRAwRuS2sQs/JcB" },
+  { name: "Melody", min: 1000, max: 2000, color: "#FBBF24", icon: "data:image/webp;base64,UklGRtADAABXRUJQVlA4TMQDAAAvF8AFEAm1bduwIadsZkT/g9E+C4NsI+d2dw8whDeQtk223b/M61DYSFLyhrtD/71RR/8DX0oDWv4/c3IelkSOtm3HHt3P+zm2ndZJhTZl1pBhO9WUs4+pbdutbdv4zU/PO/YCnnpwHHJs23aj6Jz3ZfAuchHMjpS5kHmm4l0IQ2AReeiWqkr6H65t28aevT//sW2rz5MYZdq8RLpU7N3/VVpXtm37V37ce6QKAkCA1c12su2tMit63X3VjvwHb3GR3duzbZsTABAgv+f5s6skwlg2GgnhjGsAI9+09OQmjZZ1bjQxyM6bqqiGJR1rt6LY8/Yz2Wu1cgrw8Ru4ZYc1yBAQDNgNze2SAz1BbATCbDYCHH7F/JC2olpURjMKCzx6rnowverQjSApOxFJHijAFxLQzgV1eR29DTAqIovNiYHxJkICJZ7BqSP7Y/WGyw2DJHvBapSIgFAqESUkGMDetbgzo3m85TVt3q7VLsDnZRcIW/nANEt3hmqhESrE2HqhjsjQMLNogYGyIJ8yhlDbTE1DCTVuzTVVodrv1PXCmHo+OJ/5YOne+P9g9Aewh8gkiXIu74cAAUBEgPJf/ivKWHQjLHlObTuM/l9+4D281+MXVUYBE2TX1+ppY1MgZlWJmDIKACBEgKKopiwFNEIDFu2JBwl0vGhccQOQjCwKFuhMod/ehV+DAzxaxOwi/xGaEEkACYhTNjBsFfGPtcXeCp10qI1Bco2QLoJ0IQGkTOKXWcpslc4JmMBeAx7bPoo8BACbdl7eQWd99I4kRS2aqBJKqzYCAIgIQSCq7Ku0m1oZYpcGMAAcSxDwyoB8TsJc8r31MkcVsACoIm4wORp0qSAK+gNAK4Lyz4ok7Jd0rGgo/RSFSt7xmfXYC7f9khyTMBalwZIsbJ5ao2HO1FHqHU87+c8ZD3TBLaMxRPnf8+5Uc1OhMrIwJt9hb/KmS/EgMfgEEIpgSUN2KO1tSIe56khCaCv24dIPmAhGV/udus4zdDuBYa8SNMuW4NNzv3WTIzU80RBrMjCZGhomwgTeSWukd+lZMQUgYHYzbaoKXKHW/ywQAwBglbD3sh1bq+cSbwMjOHwaSPJqeGYPJgdKZ/G2CBMigcGP55oneX//BSmKCvQu4CGAzwK8JORddmYnOU2UCnqaH9X/8zQP4uIAxwtkG4qDauDTyZ1YD8BfAF8Zo0oaVnAE4fJbqlVPN3K/Lk4whez0LSUWVAhdCIHk85dugHy1HtXvbIfaF+/YOvES2OIZcYAbEiDfEeA2QJsA+OUB" },
+  { name: "Harmony", min: 2000, max: 3500, color: "#34D399", icon: "data:image/webp;base64,UklGRsgCAABXRUJQVlA4TLsCAAAvF8AFENcFO5Jt1cqsdfTh8OlOAoT1Esfd4eyTBhzZtk1bY+/99G1n/r//7WFmR0/nwK1tW1W19j7XkIzIoQEGTVMeXyIcjpta297kpgnodSqACyYOEnERB7jIGAO0NRstdnERrOBjEHqDMIOH8ctIBhbwCKjkVVbGaQ/HAhUfAegnJJiYE4CbEApRYMn4C88BhThEZRNnFnjTryFfA+WPl62aK9lfrfomqP3z3lg+07R4l1mACZAkIRhYLRgEla1+I0kiIiLOkMJYSvYlwZ6mj4DOBAIzCYZQVcnZtGr+o6C+PlPYLJKizq1NUx7NEJJI7ynaV4vGy68asugTtKQyQghAHAK5zzutvET76IOJ78MuV0GIQljrSNttC2lYxdC8OhAgxIPwPPv3vt1d7z4dbq0RYBBKhL3/hgVoST1JIo1h4RI1iwFImTBDvDmUasbYlDYDDotxcBkplCntt/A0eft8v/hLu7w8Im15t1yvHA6JiL2tBFX469Xr2dvP5nit1NgYx3sMa7Lz/Bk2J6IoNn7TxsvVyfkJgdXs2vacYAYoS4OKAGV91C3vz6sCom3bppvY5otr20rdpraV2rZt27btfh1v+AF9HRH9V9u2DcPsPVd86F+wONx/Hls1ifHxkYenu50JrArfaG364eUu2xBSgXG6sTr8+FIRl2mLBBFDZx1bKwP3z+UxykMbHOk3oXR9c25h8Om1LCpSmUbG/yaQdU/e3rTOzNdFBMX6Uwggnf25eU3Ls7XhXntysK6+wvzmxbEqhdOOr2otS+PVCtdgH5UKGqcmasIcExJVKqrvHaoMcctK/wRK1DNaXNIw8nblIM/J+EwE2ufJxXV88mXS/kHbufXnPkGbZm6HBnq72PultL8jVBwGMtiNDnBOLaXSVd5XZGZqbmFpRaSpvjwai4H/UPr3ZjAA" },
+  { name: "Crescendo", min: 3500, max: 5000, color: "#22D3EE", icon: "data:image/webp;base64,UklGRnYDAABXRUJQVlA4TGoDAAAvF8AFEPVArgCAdLOiETtVUNs62bZt27Ztx9aPVQzwd+q1A2CEv0DPPbl9kCUAIKX0j25t27Zt2/Y+5Dq5TrjbtmYcBgDSNtk14/8jGxUUcGsc1bbtNA7SEw8oSO+Z1hl2wEGaiz9iYQIJqQKQkLYnAHx4XRPngRY7AyWhwhMtfgbX1H0wjZp92n5JtUoGfmXO4JA1OvzltHfJza30y6rVlymu+TMOSJ0YbzPVxASCVE8fxm4WmFJouTM2gZA+L7mLx/XoacXyM64a8UxIPkTK/UCwFbUzgpCYXK3Ww8UYr9jUcU+fcdbS8ZrYmAFbCV9jcbkvnlRTtIFyzZMA3hbCKlEj/wy/UCDHqAXuGPLIqLlP4nT6slLtFozJlzRrKZqGom2pjhNgxZPGNQ5W254xmlgINxJogOeGXBNblxI77b9vgL2MMfVSnDWqu0Z1FKj+J6qrSrHKODiNjdAmBRYCZg6LvmuAmvitE7u/S9PW7mKpkvaEsCzEYCRuC3GJAIeR8kCIRmSRxrbRYIKBwqIZvRousMWw1kdJ/PKC/gHiSQHf7UBsHmBO/7FImiylAeUXKw3KxZ8ughjEePWswS8bIWDK9VESKvxBHBni64DqpGIzLZ5EkxcNedkA6hqj5KQ6lTZ6Mox2aridVyGCwxKMkG5m7IbY9xGe1ZKFNKBu/Mt82pnGSXKfKkVDGzUxJqt/UP18lM/DzUIyMQmuI4CTR+wM4OTBlQJsYL1s4+6tlttVCD+excQANaWy/MpGdfLhqwEL+WJgjDZuUS3oagRdjbCrFgwN7GoU5YwjUBclSLVd3KsFEuRMHyV9DmPaI0nbiHaExhEGDDCSXqLoxZMegnjtxbNuomihZ4Mo0sTw6LXOuZ0SBBCH+kCrJd9zGIsZNtrAsnL+MITxJubBOAJ8TMxbw2inkj+Ms0WnGiFBhgB9DzSIhHiGGYtxfLQ8VVTxuyG0N4YAo0g0ikBj82AQ7VVwhrMQ2WtZmJF4N4TtYQ0F8jQgy7dYb5Wr/9nFOddz2hXG4HsMQdhiOK0xFCnwkxCQbtCLIRC0WZGU0shFVHTVriVDcjCkAVN1NNMBoxVUJXUC41RYrMQUNB4B8R4zljcckjcMDu8nGBDeMEDeMDC80YC8HRZ5D5qIAG2F2KUIBXCk9/nRFDMC" },
+  { name: "Maestro", min: 5000, max: 7500, color: "#2DD4BF", icon: "data:image/webp;base64,UklGRsYAAABXRUJQVlA4TLkAAAAvF8AFEFegNAAShkjF1axc4P+neYeiSJKay/mwiH8H/DAagMXq0oYmqZr/nzP/AQTTDLa3Nz9JZbuxqE+5t3wPHNe2rSbvrTTwYwXgMHOY/2UNEJlSgv9M8V8A3oDUGU8FEf2fAKjuaGQU0h/paDZKOmrlbZUZ60ffN5t7CvP9PvU6ZR4C9I/PnmnWKHMxB9nzZkzFlkk6FxDJ6nV60wi5As7Y7e/FYOGzqw5NyEdMz3NNSDVNhGJSAQA=" },
+  { name: "Virtuoso", min: 7500, max: 10000, color: "#F59E0B", icon: "data:image/webp;base64,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" },
+  { name: "Symphony", min: 10000, max: 15000, color: "#FB923C", icon: "data:image/webp;base64,UklGRuIAAABXRUJQVlA4TNUAAAAvF8AFEGegJrLViJL69q8DCWAAFeToMhGiprbV5rAz4QsjWGVtiYQo6EVRbBuUAv+9JvIJpYIE1mowM/8BAP6+XcfDFH+Bhdued0dkUlthQT4jCG5ra2+TfwBV3gBVpE7qXIrOtN6Akl7yBrEkwwAct+SsjvRvpWCPENH/CYC6GhGRNKCHo/hw+2MtPQ7ZgIt9TAD0nQsmuLgZ5TViIdvJev1tVV2jiY3SVJ3WaQNBK1XzpaU0TusGNsZ8KWuBpjRV8wTBaNNUNgJlO50nb7BqRETShCcA" },
+  { name: "Legend", min: 15000, max: 25000, color: "#A5B4FC", icon: "data:image/webp;base64,UklGRkYBAABXRUJQVlA4TDoBAAAvF8AFEJfBppEkR33+eBx/Mk/gYx/Z6JsGgwBo29AvoNv8m5iiOfgXYBRJtpNH5vidoAIVmMNfPr0cBARF/o8W+howwAADArDlI74/KXgPH8B/gx7TfQJ+o50/wuZaS0irkFYhr0IZhAz6tJvmkz+RDDlRkFMKCmVwOJeiDQqSm1EjpxMOUkChDQqSlb4ZtQmtMTiMbdt0Yn/btpL0351VwDkR/Z+A8i9nb7u8Kbt4bf2OLAz2HqvmDbq21NG9Q8PqDZesiASuSM9tWD2RRyokgcsjebAcVs9oEAUujiQtx23vFYhOK2AOe8PZfGYaYYcb4OKaPBrcGiRden358OqYhmBwp8Og53rDI1TnxhO41OGxrbvymRahwJUG3+vwFIBOU9cxR5Yv9zHl9zBJlfdgQsqhfO+Id7/veQ==" },
+  { name: "Eternal Echo", min: 25000, max: 50000, color: "#A78BFA", icon: "data:image/webp;base64,UklGRsQAAABXRUJQVlA4TLgAAAAvF8AFEEegNpIN6iH7i4Sq0H9jGlHaSAp0d7hXImmC/ksjURNJCvM19Dm0GMC/KgTMf4Bwd2fE7lAn/66bRT2xBUe1bavNfVHAMHzBOQpgASkICAkoj7m+KaAgov8TgKXatmTZ9ji2O9+2m8oWwFn3NsHX9+AK3JxeH5ezTiN250EHN8PZIM66rQau+0Ed01Trj7LQicN887Ep5BHgsFQhpuuIMEIMEgVisPqAqBAgBhLGEQCIX5YI" },
+  { name: "Overlord", min: 50000, max: Infinity, color: "#E879F9", icon: "data:image/webp;base64,UklGRjgBAABXRUJQVlA4TCsBAAAvF8AFEPegqJEkZZlep/dUoiIQoaiRJGWZXmtj/Zs7TNS2bcMGbadnypb5V5u2ATOm5w5AMM3MBpEQiUguer7vgVliNu6FSJiNexFxVcsstT7nl7GgzzNArG3bSYSPzwv4gzlr/306EtY0cG9E/yeg+8f3xzKF5+dngXvb84bTrHy5nU/I1+OeeUphPV9ux0PDfrdnnmCMQh5ywz4LdYrTdM9GZuHASUG1QgpTL5igAaPThEx8TzG3cEB7YZ/2NU+huYa/3q89uWso/EOdFg7TXNueZY9iUr4CbnB15X5nJTdgXzvANOCAOmDZNtJKFXYA1MJJmgPKuick4QuAaQAc6QFhIvkDRg1wMKqkXobtL0DJ2A4wIYFxyrcGxwFZepnnmoWJ3Ww1ColVAQA=" },
+];
+
+const BANNER_PRESETS = [
+  { id: "purple", label: "Purple Night",  from: "#1a1a3e", mid: "#2d1b69", to: "#1e3a8a", accent: "var(--accent-soft)" },
+  { id: "red",    label: "Deep Red",      from: "#3b0000", mid: "#7f1d1d", to: "#1a0000", accent: "#FFB4A8" },
+  { id: "teal",   label: "Ocean",         from: "#042f2e", mid: "#0f766e", to: "#083344", accent: "#2dd4bf" },
+  { id: "amber",  label: "Golden",        from: "#292524", mid: "#78350f", to: "#1c1917", accent: "#fbbf24" },
+  { id: "pink",   label: "Rose",          from: "#2d0a1e", mid: "#831843", to: "#1a0011", accent: "#f9a8d4" },
+  { id: "green",  label: "Forest",        from: "#052e16", mid: "#14532d", to: "#0a0f0a", accent: "#4ade80" },
+];
+
+const GLOBAL_CSS = `
+.disp{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Helvetica Neue',system-ui,sans-serif;letter-spacing:-0.022em}
+button,input,textarea,select{font-family:inherit}
+body{-webkit-font-smoothing:antialiased}
+@keyframes spin{to{transform:rotate(360deg)}}
+.seek{-webkit-appearance:none;appearance:none;width:100%;height:6px;border-radius:99px;outline:none;cursor:pointer}
+.seek::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.45)}
+.seek::-moz-range-thumb{width:18px;height:18px;border:none;border-radius:50%;background:#fff}
+button:focus-visible,input:focus-visible{outline:2px solid var(--accent-soft);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){.vinyl{animation:none!important}}
+`;
+const THEMES = [
+  { id: "midnight", name: "Midnight", bg: "#14112A", bgRgb: "20,17,42", panel: "#1B1736", mini: "rgba(38,32,76,0.97)", hero1: "#2A2160", hero2: "#3B2470", glow: "#3A2A7A", deep: "#1E1844", accent: "#C34466", soft: "#FF8FAE", accentRgb: "195,68,102" },
+  { id: "ocean",    name: "Ocean",    bg: "#0B1B26", bgRgb: "11,27,38",  panel: "#10283A", mini: "rgba(20,52,72,0.97)",  hero1: "#0F4C5C", hero2: "#136F7A", glow: "#14606E", deep: "#0D2F3F", accent: "#097E7D", soft: "#5EEAD4", accentRgb: "9,126,125" },
+  { id: "forest",   name: "Forest",   bg: "#0E1A12", bgRgb: "14,26,18",  panel: "#14241A", mini: "rgba(26,52,36,0.97)",  hero1: "#1B4A2E", hero2: "#2A6B3F", glow: "#256B3E", deep: "#12301D", accent: "#1A8548", soft: "#6EE7A0", accentRgb: "26,133,72" },
+  { id: "sunset",   name: "Sunset",   bg: "#1F1410", bgRgb: "31,20,16",  panel: "#2A1B15", mini: "rgba(58,36,28,0.97)",  hero1: "#5A2A18", hero2: "#8A3A1C", glow: "#7A3418", deep: "#3A1C12", accent: "#C64B09", soft: "#FFA270", accentRgb: "198,75,9" },
+];
+const themeVars = (t) => ({
+  "--bg": t.bg, "--bg-rgb": t.bgRgb, "--panel": t.panel, "--mini": t.mini,
+  "--hero1": t.hero1, "--hero2": t.hero2, "--glow": t.glow, "--deep": t.deep,
+  "--accent": t.accent, "--accent-soft": t.soft, "--accent-rgb": t.accentRgb,
+});
+
+// ─── LEVEL BADGE / IMAGE HELPERS ───────────────────────────────────────────
+const LevelBadge = ({ level, size = 28, dim = false }) => (
+  <img src={level.icon} alt={level.name} width={size} height={size} style={{
+    width: size, height: size, imageRendering: "pixelated", flexShrink: 0,
+    filter: dim ? "grayscale(1) brightness(0.7)" : "drop-shadow(0 1px 3px rgba(0,0,0,0.5))", opacity: dim ? 0.55 : 1,
+  }} />
+);
+
+// Baca foto dari galeri, kecilkan, simpan sebagai data URL JPEG
+const readImage = (file, maxW = 1000) => new Promise((res, rej) => {
+  const r = new FileReader();
+  r.onerror = rej;
+  r.onload = () => {
+    const img = new Image();
+    img.onerror = rej;
+    img.onload = () => {
+      const k = Math.min(1, maxW / img.width);
+      const c = document.createElement("canvas");
+      c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      res(c.toDataURL("image/jpeg", 0.82));
+    };
+    img.src = r.result;
+  };
+  r.readAsDataURL(file);
+});
+
+// ─── AVATAR FRAME ──────────────────────────────────────────────────────────
+// 3 bingkai: Basic, Sakura, Emas. Kanvas 140x140, foto di tengah (r=50).
+const GOLD = "url(#fGold)";
+const GOLD_CSS = "linear-gradient(145deg,#FFF3B0,#F6C945 40%,#B8860B 70%,#FFE08A)";
+const polar = (deg, r) => [70 + r * Math.cos(deg * Math.PI / 180), 70 + r * Math.sin(deg * Math.PI / 180)];
+const Flower = ({ x, y, r }) => (
+  <g>
+    {[0, 72, 144, 216, 288].map(a => <ellipse key={a} cx={x} cy={y - r * 0.7} rx={r * 0.5} ry={r * 0.75} transform={`rotate(${a} ${x} ${y})`} fill="#FFDDEB" stroke="#F472B6" strokeWidth="0.6" />)}
+    <circle cx={x} cy={y} r={r * 0.28} fill="#FDE047" />
+  </g>
+);
+
+const FRAMES = [
+  { id: "basic", name: "Basic", ring: "rgba(255,255,255,0.9)", art: () => (
+    <g fill="none">
+      <circle cx="70" cy="70" r="54" stroke="#fff" strokeWidth="3.5" />
+      <circle cx="70" cy="70" r="58" stroke="rgba(255,255,255,0.35)" strokeWidth="1.2" />
+    </g>) },
+  { id: "sakura", name: "Sakura", ring: "#F9A8D4", art: () => (
+    <g>
+      <circle cx="70" cy="70" r="54" fill="none" stroke="#F9A8D4" strokeWidth="5" />
+      <circle cx="70" cy="70" r="51.5" fill="none" stroke="#fff" strokeWidth="1" opacity="0.6" />
+      {[[62, 63, 40], [-12, 64, -30], [-60, 63, 20]].map(([a, r, rot], i) => { const [x, y] = polar(a, r); return <ellipse key={i} cx={x} cy={y} rx="2.2" ry="3.6" transform={`rotate(${rot} ${x} ${y})`} fill="#FBCFE8" opacity="0.9" />; })}
+      {[[-148, 9.5], [-122, 7], [-98, 5.5], [32, 8], [10, 5.5]].map(([a, r], i) => { const [x, y] = polar(a, 54); return <Flower key={i} x={x} y={y} r={r} />; })}
+    </g>) },
+  { id: "gold", name: "Emas", ring: GOLD_CSS, art: () => (
+    <g>
+      <circle cx="70" cy="70" r="55" fill="none" stroke={GOLD} strokeWidth="6" />
+      <circle cx="70" cy="70" r="51.5" fill="none" stroke="#5A3B00" strokeWidth="1.2" />
+      <circle cx="70" cy="70" r="58.5" fill="none" stroke="#FFF3B0" strokeWidth="1" opacity="0.8" />
+      {[0, 90, 180, 270].map(a => { const [x, y] = polar(a - 90, 55); return <path key={a} d="M0 -5 L4 0 L0 5 L-4 0 Z" transform={`translate(${x} ${y}) rotate(${a})`} fill={GOLD} stroke="#6B4A00" strokeWidth="0.8" />; })}
+    </g>) },
+];
+
+const frameTile = (on) => ({
+  display: "flex", flexDirection: "column", alignItems: "center", gap: 8, padding: "16px 4px 12px", borderRadius: 18, cursor: "pointer", color: "#fff",
+  background: "rgba(255,255,255,0.06)", border: `2px solid ${on ? "var(--accent-soft)" : "rgba(255,255,255,0.12)"}`,
+});
+
+const AvatarFrame = ({ profile, size = 76, simple = false }) => {
+  const frame = FRAMES.find(f => f.id === profile.frame) || FRAMES[0];
+  const photo = (d) => (
+    <div style={{ width: d, height: d, borderRadius: "50%", overflow: "hidden", flexShrink: 0,
+      background: profile.avatar ? "transparent" : "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center",
+      fontSize: d * 0.34, fontWeight: 700, color: "#fff" }}>
+      {profile.avatar
+        ? <img src={profile.avatar} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+        : profile.name.slice(0, 2).toUpperCase()}
+    </div>
+  );
+  if (simple) return (
+    <div style={{ width: size, height: size, flexShrink: 0, borderRadius: "50%", padding: 2.5, boxSizing: "border-box", background: frame.ring, boxShadow: "0 2px 8px rgba(0,0,0,0.45)" }}>
+      {photo(size - 5)}
+    </div>
+  );
+  const k = size / 100;
+  return (
+    <div style={{ position: "relative", width: 140 * k, height: 140 * k, flexShrink: 0 }}>
+      <div style={{ position: "absolute", left: 20 * k, top: 20 * k }}>{photo(100 * k)}</div>
+      <svg viewBox="0 0 140 140" width="100%" height="100%" aria-hidden="true"
+        style={{ position: "absolute", inset: 0, overflow: "visible", filter: "drop-shadow(0 3px 6px rgba(0,0,0,0.4))" }}>
+        <defs>
+          <linearGradient id="fGold" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stopColor="#FFF3B0" /><stop offset="0.35" stopColor="#F6C945" /><stop offset="0.7" stopColor="#B8860B" /><stop offset="1" stopColor="#FFE08A" />
+          </linearGradient>
+        </defs>
+        {frame.art()}
+      </svg>
+    </div>
+  );
+};
+
+// ─── ONLINE HOME (YouTube Data API v3 — hanya kerangka dasar) ──────────────
+// API key disuplai saat build/runtime melalui konfigurasi environment, bukan dari Pengaturan.
+const YT_API = "https://www.googleapis.com/youtube/v3";
+const decodeHtml = (t = "") => { const e = document.createElement("textarea"); e.innerHTML = t; return e.value; };
+const mapYT = (it) => ({
+  id: it.id?.videoId || it.id,
+  title: decodeHtml(it.snippet?.title),
+  channel: it.snippet?.channelTitle,
+  thumb: it.snippet?.thumbnails?.medium?.url,
+});
+
+// ─── ONLINE MUSIC PLAYER (YouTube audio-mode, no video shown) ──────────────
+const OnlineMusicPlayer = ({ track, onClose }) => {
+  const iframeRef  = useRef(null);
+  const playerRef  = useRef(null);
+  const [playing, setPlaying]   = useState(true);
+  const [progress, setProgress] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [ready, setReady]       = useState(false);
+  const timerRef = useRef(null);
+
+  // Load YT IFrame API once
+  useEffect(() => {
+    const initPlayer = () => {
+      playerRef.current = new window.YT.Player(iframeRef.current, {
+        videoId: track.id,
+        playerVars: {
+          autoplay: 1, playsinline: 1, controls: 0,
+          disablekb: 1, fs: 0, modestbranding: 1, rel: 0, iv_load_policy: 3,
+        },
+        events: {
+          onReady: (e) => {
+            setReady(true);
+            setDuration(e.target.getDuration() || 0);
+            e.target.playVideo();
+          },
+          onStateChange: (e) => {
+            const YT = window.YT.PlayerState;
+            setPlaying(e.data === YT.PLAYING);
+            if (e.data === YT.ENDED) { setPlaying(false); setProgress(0); }
+          },
+        },
+      });
+    };
+
+    if (!window.YT) {
+      const tag = document.createElement("script");
+      tag.src = "https://www.youtube.com/iframe_api";
+      document.head.appendChild(tag);
+      window.onYouTubeIframeAPIReady = initPlayer;
+    } else {
+      initPlayer();
+    }
+    return () => {
+      if (playerRef.current) { try { playerRef.current.destroy(); } catch(_) {} }
+      clearInterval(timerRef.current);
+    };
+  }, [track.id]);
+
+  // Poll progress
+  useEffect(() => {
+    timerRef.current = setInterval(() => {
+      try {
+        const p = playerRef.current;
+        if (!p) return;
+        const cur = p.getCurrentTime?.() || 0;
+        const dur = p.getDuration?.() || 0;
+        setProgress(cur);
+        if (dur > 0) setDuration(dur);
+      } catch(_) {}
+    }, 500);
+    return () => clearInterval(timerRef.current);
+  }, []);
+
+  const togglePlay = () => {
+    try {
+      if (playing) playerRef.current?.pauseVideo();
+      else playerRef.current?.playVideo();
+    } catch(_) {}
+  };
+
+  const fmtT = (s) => {
+    if (!s || isNaN(s)) return "0:00";
+    return `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,"0")}`;
+  };
+
+  const pct = duration > 0 ? (progress / duration) * 100 : 0;
+
+  return (
+    <div style={{
+      position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 9000,
+      background: "linear-gradient(to top, rgba(var(--bg-rgb),0.99) 0%, rgba(var(--bg-rgb),0.97) 100%)",
+      borderTop: "1px solid rgba(255,255,255,0.10)",
+      backdropFilter: "blur(28px)", padding: "0 0 env(safe-area-inset-bottom,0px)",
+    }}>
+      {/* hidden YT iframe */}
+      <div style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", opacity: 0, pointerEvents: "none" }}>
+        <div ref={iframeRef} />
+      </div>
+
+      {/* Album art hero strip */}
+      <div style={{
+        height: 3, background: `linear-gradient(90deg, var(--accent) ${pct}%, rgba(255,255,255,0.08) ${pct}%)`,
+        transition: "background 0.5s linear",
+      }} />
+
+      <div style={{ padding: "14px 18px 16px", display: "flex", flexDirection: "column", gap: 14 }}>
+        {/* Track info row */}
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          {/* Thumbnail as music art */}
+          <div style={{
+            width: 54, height: 54, borderRadius: 14, flexShrink: 0, overflow: "hidden",
+            background: track.thumb ? `url(${track.thumb}) center/cover` : "var(--hero1)",
+            boxShadow: "0 4px 16px rgba(0,0,0,0.5)",
+          }} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="disp" style={{
+              fontSize: 15, fontWeight: 700, color: "#fff",
+              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+            }}>{track.title}</div>
+            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", marginTop: 2 }}>{track.channel}</div>
+          </div>
+          <button onClick={onClose} style={{
+            background: "rgba(255,255,255,0.09)", border: "none", borderRadius: 10,
+            width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center",
+            color: "rgba(255,255,255,0.7)", cursor: "pointer", flexShrink: 0,
+          }}>
+            <IcClose s={16} />
+          </button>
+        </div>
+
+        {/* Time / progress */}
+        <div>
+          <div style={{
+            height: 4, borderRadius: 999, background: "rgba(255,255,255,0.10)", overflow: "hidden", marginBottom: 6,
+          }}>
+            <div style={{
+              height: "100%", borderRadius: 999, background: "var(--accent-soft)",
+              width: `${pct}%`, transition: "width 0.5s linear",
+            }} />
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "rgba(255,255,255,0.45)" }}>
+            <span>{fmtT(progress)}</span>
+            <span>{fmtT(duration)}</span>
+          </div>
+        </div>
+
+        {/* Controls */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 22 }}>
+          <button onClick={togglePlay} style={{
+            width: 52, height: 52, borderRadius: "50%", border: "none", cursor: "pointer",
+            background: "var(--accent)", color: "#fff",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            boxShadow: "0 4px 18px rgba(var(--accent-rgb),0.45)",
+            opacity: ready ? 1 : 0.5,
+          }}>
+            {playing ? <IcPause s={22} /> : <IcPlay s={22} />}
+          </button>
+          {!ready && (
+            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.45)", position: "absolute", bottom: 78 }}>
+              Memuat audio...
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const OnlineHome = ({ ytKey }) => {
+  const [q, setQ]          = useState("");
+  const [items, setItems]  = useState([]);
+  const [loading, setLoad] = useState(false);
+  const [error, setError]  = useState("");
+  const [nowPlaying, setNowPlaying] = useState(null);
+  const [category, setCategory]     = useState("all"); // "all" | "trending" | "liked"
+
+  const load = useCallback(async (query) => {
+    if (!ytKey) return;
+    setLoad(true); setError("");
+    try {
+      const url = query
+        ? `${YT_API}/search?part=snippet&type=video&videoCategoryId=10&maxResults=24&q=${encodeURIComponent(query)}&key=${ytKey}`
+        : `${YT_API}/videos?part=snippet&chart=mostPopular&videoCategoryId=10&maxResults=24&key=${ytKey}`;
+      const res  = await fetch(url);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error?.message || "Permintaan gagal");
+      setItems((data.items || []).map(mapYT));
+    } catch (e) { setError(e.message); setItems([]); }
+    setLoad(false);
+  }, [ytKey]);
+
+  useEffect(() => { load(""); }, [load]);
+
+  if (!ytKey) return (
+    <div style={{
+      textAlign: "center", padding: "48px 24px",
+      background: "linear-gradient(135deg,rgba(255,255,255,0.04),rgba(255,255,255,0.02))",
+      borderRadius: 20, border: "1px solid rgba(255,255,255,0.07)",
+    }}>
+      <div style={{
+        width: 64, height: 64, borderRadius: 20, background: "rgba(var(--accent-rgb),0.15)",
+        display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px",
+      }}>
+        <IcMusic s={28} />
+      </div>
+      <div className="disp" style={{ fontSize: 18, fontWeight: 700, color: "#fff", marginBottom: 8 }}>
+        Online belum aktif
+      </div>
+      <div style={{ fontSize: 13, color: "rgba(255,255,255,0.55)", lineHeight: 1.6, maxWidth: 260, margin: "0 auto" }}>
+        Konfigurasi API YouTube Music melalui build atau Termux untuk mengaktifkan streaming online.
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={{ paddingBottom: nowPlaying ? 160 : 0 }}>
+      {/* Search bar */}
+      <div style={{
+        display: "flex", gap: 10, marginBottom: 18,
+        background: "rgba(255,255,255,0.05)", borderRadius: 16,
+        padding: "6px 6px 6px 14px", border: "1px solid rgba(255,255,255,0.09)",
+      }}>
+        <IcSearch s={18} />
+        <input
+          value={q}
+          onChange={e => setQ(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && load(q.trim())}
+          placeholder="Cari lagu atau artis..."
+          aria-label="Cari musik di YouTube"
+          style={{
+            flex: 1, background: "transparent", border: "none", fontSize: 14,
+            color: "#fff", outline: "none",
+          }}
+        />
+        <button
+          onClick={() => load(q.trim())}
+          style={{
+            background: "var(--accent)", border: "none", borderRadius: 11,
+            padding: "8px 16px", fontSize: 13, fontWeight: 700, color: "#fff", cursor: "pointer",
+          }}
+        >
+          Cari
+        </button>
+      </div>
+
+      {/* Section label */}
+      <div className="disp" style={{ fontSize: 18, fontWeight: 700, color: "#fff", marginBottom: 12 }}>
+        {q.trim() ? `Hasil: "${q.trim()}"` : "Musik Populer"}
+      </div>
+
+      {/* Status */}
+      {loading && (
+        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "16px 0", color: "rgba(255,255,255,0.5)", fontSize: 13 }}>
+          <div style={{ width: 18, height: 18, borderRadius: "50%", border: "2px solid rgba(255,255,255,0.2)", borderTopColor: "var(--accent-soft)", animation: "spin 0.8s linear infinite", flexShrink: 0 }} />
+          Memuat musik...
+        </div>
+      )}
+      {error && (
+        <div role="alert" style={{
+          background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.25)",
+          borderRadius: 12, padding: "12px 14px", fontSize: 13, color: "#FCA5A5", marginBottom: 10,
+        }}>
+          {error}
+        </div>
+      )}
+
+      {/* Track list */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        {items.map((v, i) => {
+          const isActive = nowPlaying?.id === v.id;
+          return (
+            <button
+              key={v.id}
+              onClick={() => setNowPlaying(v)}
+              style={{
+                display: "flex", alignItems: "center", gap: 12, width: "100%",
+                textAlign: "left", background: isActive ? "rgba(var(--accent-rgb),0.12)" : "transparent",
+                border: isActive ? "1px solid rgba(var(--accent-rgb),0.25)" : "1px solid transparent",
+                borderRadius: 14, padding: "10px 12px", cursor: "pointer", color: "#fff",
+                transition: "background 0.15s, border 0.15s",
+              }}
+            >
+              {/* Number / playing indicator */}
+              <div style={{
+                width: 20, textAlign: "center", fontSize: 12, flexShrink: 0,
+                color: isActive ? "var(--accent-soft)" : "rgba(255,255,255,0.3)", fontWeight: 600,
+              }}>
+                {isActive ? <IcMusic s={13} /> : i + 1}
+              </div>
+
+              {/* Thumbnail as album art square */}
+              <div style={{
+                width: 48, height: 48, borderRadius: 12, flexShrink: 0, overflow: "hidden",
+                background: v.thumb ? `url(${v.thumb}) center/cover` : "var(--hero1)",
+                boxShadow: isActive ? "0 0 0 2px var(--accent-soft)" : "none",
+                position: "relative",
+              }}>
+                {isActive && (
+                  <div style={{
+                    position: "absolute", inset: 0, background: "rgba(0,0,0,0.35)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                  }}>
+                    <IcMusic s={16} />
+                  </div>
+                )}
+              </div>
+
+              {/* Info */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{
+                  fontSize: 14, fontWeight: 600,
+                  color: isActive ? "var(--accent-soft)" : "#fff",
+                  overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                }}>{v.title}</div>
+                <div style={{ fontSize: 11, color: "rgba(255,255,255,0.48)", marginTop: 2 }}>{v.channel}</div>
+              </div>
+
+              {/* Play icon */}
+              <div style={{ color: isActive ? "var(--accent-soft)" : "rgba(255,255,255,0.25)", flexShrink: 0 }}>
+                {isActive ? <IcPause s={16} /> : <IcPlay s={16} />}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Online music player - fixed bottom */}
+      {nowPlaying && (
+        <OnlineMusicPlayer
+          key={nowPlaying.id}
+          track={nowPlaying}
+          onClose={() => setNowPlaying(null)}
+        />
+      )}
+    </div>
+  );
+};
+
+// ─── UTILS ─────────────────────────────────────────────────────────────────
+const fmt = (s) => {
+  if (!s || isNaN(s)) return "0:00";
+  return `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+};
+const getLevelInfo = (xp) => {
+  const lvl = LEVELS.find((l) => xp >= l.min && xp < l.max) || LEVELS[LEVELS.length - 1];
+  const idx = LEVELS.indexOf(lvl);
+  const next = LEVELS[idx + 1];
+  const pct = next ? Math.round(((xp - lvl.min) / (next.min - lvl.min)) * 100) : 100;
+  return { ...lvl, idx, xp, pct, next };
+};
+const genId = () => Math.random().toString(36).slice(2, 9);
+
+// ─── ICONS ─────────────────────────────────────────────────────────────────
+// Set ikon seragam: grid 24, garis bulat 1.9 — varian "filled" untuk tab aktif
+const Svg = ({ s = 20, fill = "none", sw = 1.9, filled, children }) => (
+  <svg width={s} height={s} viewBox="0 0 24 24" fill={fill} stroke="currentColor" strokeWidth={filled ? sw + 0.4 : sw} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{children}</svg>
+);
+const IcHome     = ({ s = 20, filled }) => <Svg s={s} filled={filled} fill={filled ? "currentColor" : "none"}><path d="M4 10.8 12 4l8 6.8V19a1 1 0 0 1-1 1h-4.5v-5.5h-5V20H5a1 1 0 0 1-1-1z" /></Svg>;
+const IcSearch   = ({ s = 20 }) => <Svg s={s}><circle cx="11" cy="11" r="6.5" /><path d="m20 20-4.2-4.2" /></Svg>;
+const IcHistory  = ({ s = 20, filled }) => <Svg s={s} filled={filled}><path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1" /><path d="M3.5 4.5v4h4" /><path d="M12 7.5V12l3 2" /></Svg>;
+const IcSettings = ({ s = 20, filled }) => <Svg s={s} filled={filled}><path d="M4 7h8M18 7h2M4 17h2M12 17h8" /><circle cx="15" cy="7" r="2.6" fill={filled ? "currentColor" : "none"} /><circle cx="9" cy="17" r="2.6" fill={filled ? "currentColor" : "none"} /></Svg>;
+const IcUser     = ({ s = 20, filled }) => <Svg s={s} filled={filled} fill={filled ? "currentColor" : "none"}><circle cx="12" cy="8" r="3.8" /><path d="M4.5 20c.6-3.6 3.6-5.5 7.5-5.5s6.9 1.9 7.5 5.5z" /></Svg>;
+const IcPlay     = ({ s = 20 }) => <Svg s={s} fill="currentColor" sw={1.6}><path d="M8 5.6v12.8a1 1 0 0 0 1.5.86l10.2-6.4a1 1 0 0 0 0-1.72L9.5 4.74A1 1 0 0 0 8 5.6z" /></Svg>;
+const IcPause    = ({ s = 20 }) => <Svg s={s} fill="currentColor" sw={1}><rect x="6.5" y="5" width="4" height="14" rx="1.4" /><rect x="13.5" y="5" width="4" height="14" rx="1.4" /></Svg>;
+const IcNext     = ({ s = 20 }) => <Svg s={s} fill="currentColor" sw={1.4}><path d="M5.5 6.8v10.4a1 1 0 0 0 1.55.84l7.6-5.2a1 1 0 0 0 0-1.68l-7.6-5.2a1 1 0 0 0-1.55.84z" /><rect x="17" y="5.5" width="2.6" height="13" rx="1.3" /></Svg>;
+const IcPrev     = ({ s = 20 }) => <Svg s={s} fill="currentColor" sw={1.4}><g transform="translate(24 0) scale(-1 1)"><path d="M5.5 6.8v10.4a1 1 0 0 0 1.55.84l7.6-5.2a1 1 0 0 0 0-1.68l-7.6-5.2a1 1 0 0 0-1.55.84z" /><rect x="17" y="5.5" width="2.6" height="13" rx="1.3" /></g></Svg>;
+const IcHeart    = ({ s = 20, filled }) => <svg width={s} height={s} viewBox="0 0 24 24" fill={filled ? "#ef4444" : "none"} stroke={filled ? "#ef4444" : "currentColor"} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 20.2s-7.7-4.7-7.7-10.4A4.4 4.4 0 0 1 12 7.2a4.4 4.4 0 0 1 7.7 2.6c0 5.7-7.7 10.4-7.7 10.4z" /></svg>;
+const IcShuffle  = ({ s = 20 }) => <Svg s={s}><path d="M16 4h4v4" /><path d="M4 20 20 4" /><path d="M20 16v4h-4" /><path d="m14.5 14.5 5.5 5.5" /><path d="M4 4l5 5" /></Svg>;
+const IcRepeat   = ({ s = 20 }) => <Svg s={s}><path d="m17 3 3.5 3.5L17 10" /><path d="M3.5 11V9.5a3 3 0 0 1 3-3h14" /><path d="m7 21-3.5-3.5L7 14" /><path d="M20.5 13v1.5a3 3 0 0 1-3 3h-14" /></Svg>;
+const IcVolume   = ({ s = 20 }) => <Svg s={s}><path d="M10.5 5.5 6.5 9h-3v6h3l4 3.5z" fill="currentColor" /><path d="M15 9a4 4 0 0 1 0 6" /><path d="M17.8 6.2a8 8 0 0 1 0 11.6" /></Svg>;
+const IcCamera   = ({ s = 20 }) => <Svg s={s}><path d="M4 8.5a2 2 0 0 1 2-2h2l1.5-2h5l1.5 2h2a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z" /><circle cx="12" cy="12.5" r="3.5" /></Svg>;
+const IcStar     = ({ s = 20 }) => <Svg s={s} fill="currentColor" sw={1.4}><path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.9-5.2-2.8-5.2 2.8 1-5.9-4.3-4.1 5.9-.8z" /></Svg>;
+const IcMusic    = ({ s = 20 }) => <Svg s={s}><path d="M9 17.5V6l10-2v11.5" /><circle cx="6.5" cy="17.5" r="2.5" /><circle cx="16.5" cy="15.5" r="2.5" /></Svg>;
+const IcUpload   = ({ s = 20, filled }) => <Svg s={s} filled={filled}><path d="M12 15V4" /><path d="m7.5 8.5 4.5-4.5 4.5 4.5" /><path d="M4.5 14.5v3A2.5 2.5 0 0 0 7 20h10a2.5 2.5 0 0 0 2.5-2.5v-3" /></Svg>;
+const IcTrash    = ({ s = 20 }) => <Svg s={s}><path d="M4 7h16" /><path d="M9.5 7V4.5h5V7" /><path d="m6.5 7 .8 11.2A2 2 0 0 0 9.3 20h5.4a2 2 0 0 0 2-1.8L17.5 7" /><path d="M10 11v5M14 11v5" /></Svg>;
+const IcEdit     = ({ s = 20 }) => <Svg s={s}><path d="M4.5 19.5h4L19 9a2.1 2.1 0 0 0-3-3L5.5 16.5z" /><path d="m14 7.5 3 3" /></Svg>;
+const IcBell     = ({ s = 20 }) => <Svg s={s}><path d="M6 16.5v-5a6 6 0 0 1 12 0v5l1.5 2h-15z" /><path d="M10 21h4" /></Svg>;
+const IcPaint    = ({ s = 20 }) => <Svg s={s}><path d="M12 3.5a8.5 8.5 0 1 0 0 17c1.2 0 1.9-.8 1.9-1.7 0-1.1-.9-1.4-.9-2.4 0-.9.7-1.6 1.7-1.6h1.9a3.9 3.9 0 0 0 3.9-3.9c0-4.1-3.7-7.4-8.5-7.4z" /><circle cx="7.8" cy="11" r="1" fill="currentColor" /><circle cx="10.5" cy="7.6" r="1" fill="currentColor" /><circle cx="15" cy="8" r="1" fill="currentColor" /></Svg>;
+const IcLock     = ({ s = 20 }) => <Svg s={s}><rect x="5" y="10.5" width="14" height="9.5" rx="2.5" /><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5" /></Svg>;
+const IcDownload = ({ s = 20 }) => <Svg s={s}><path d="M12 4v11" /><path d="m7.5 10.5 4.5 4.5 4.5-4.5" /><path d="M4.5 19.5h15" /></Svg>;
+const IcClose    = ({ s = 20 }) => <Svg s={s}><path d="m6 6 12 12M18 6 6 18" /></Svg>;
+const IcImage    = ({ s = 20 }) => <Svg s={s}><rect x="3.5" y="4.5" width="17" height="15" rx="3" /><circle cx="9" cy="10" r="1.7" /><path d="m20.5 16-4.8-4.8L7 19.5" /></Svg>;
+const IcChevron  = ({ s = 20 }) => <Svg s={s}><path d="m9.5 5.5 6.5 6.5-6.5 6.5" /></Svg>;
+const IcCheck    = ({ s = 20 }) => <Svg s={s} sw={2.4}><path d="m5.5 12.5 4.2 4.2L18.5 7.5" /></Svg>;
+
+// Logo aplikasi: ekualizer di kotak membulat
+const Logo = ({ s = 30 }) => (
+  <div aria-hidden="true" style={{ width: s, height: s, borderRadius: s * 0.3, flexShrink: 0, background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 4px 14px rgba(var(--accent-rgb),0.45)" }}>
+    <svg width={s * 0.6} height={s * 0.6} viewBox="0 0 24 24" fill="#fff"><rect x="3" y="9" width="3.4" height="7" rx="1.7" /><rect x="8.2" y="4" width="3.4" height="16" rx="1.7" /><rect x="13.4" y="7" width="3.4" height="10" rx="1.7" /><rect x="18.6" y="10" width="3.4" height="4" rx="1.7" /></svg>
+  </div>
+);
+
+// ─── ALBUM ART ─────────────────────────────────────────────────────────────
+const GRADIENTS = [
+  ["#1a1a2e","#16213e","#0f3460","#533483"],
+  ["#1a0a2e","#2d1b4e","#6b2d6b","#a855f7"],
+  ["#0a1628","#1e3a5f","#0e76a8","#00c6ff"],
+  ["#0d1f0d","#1a3a1a","#2d6a2d","#4ade80"],
+  ["#2d0a1e","#831843","#1a0011","#f472b6"],
+  ["#292524","#78350f","#1c1917","#f59e0b"],
+];
+const AlbumArt = ({ song, size = 56, style = {} }) => {
+  const idx = song ? (song.title.charCodeAt(0) % GRADIENTS.length) : 0;
+  const [c0, c1, c2, c3] = GRADIENTS[idx];
+  const letters = song ? song.title.slice(0, 2).toUpperCase() : "SC";
+  if (song?.cover) {
+    return (
+      <div style={{ width: size, height: size, borderRadius: size > 80 ? 18 : 12, overflow: "hidden", flexShrink: 0, ...style }}>
+        <img src={song.cover} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+      </div>
+    );
+  }
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: size > 80 ? 18 : 12,
+      background: `linear-gradient(135deg, ${c0} 0%, ${c1} 40%, ${c2} 70%, ${c3} 100%)`,
+      display: "flex", alignItems: "center", justifyContent: "center",
+      fontSize: size * 0.28, fontWeight: 700, color: "rgba(255,255,255,0.85)",
+      letterSpacing: 1, flexShrink: 0, position: "relative", overflow: "hidden",
+      ...style
+    }}>
+      <div style={{ position: "absolute", width: "55%", height: "55%", borderRadius: "50%", background: "rgba(255,255,255,0.06)", top: "8%", left: "8%" }} />
+      {letters}
+    </div>
+  );
+};
+
+// ─── XP BAR ────────────────────────────────────────────────────────────────
+const XPBar = ({ pct, color, height = 4 }) => (
+  <div style={{ background: "rgba(255,255,255,0.1)", borderRadius: 999, height, overflow: "hidden" }}>
+    <div style={{ height: "100%", width: `${pct}%`, background: color, borderRadius: 999, transition: "width 0.6s ease" }} />
+  </div>
+);
+
+// ─── TOGGLE ────────────────────────────────────────────────────────────────
+const Toggle = ({ value, onChange }) => (
+  <div onClick={() => onChange(!value)} style={{
+    width: 44, height: 24, borderRadius: 99,
+    background: value ? "var(--accent)" : "rgba(255,255,255,0.12)",
+    position: "relative", cursor: "pointer", transition: "background 0.2s", flexShrink: 0,
+  }}>
+    <div style={{
+      position: "absolute", top: 2, left: value ? 22 : 2,
+      width: 20, height: 20, borderRadius: "50%", background: "#fff",
+      transition: "left 0.2s",
+    }} />
+  </div>
+);
+
+// ─── ICON BTN ──────────────────────────────────────────────────────────────
+const IconBtn = ({ icon: Icon, onClick, active, size = 20, style: sx = {} }) => (
+  <button onClick={onClick} style={{
+    background: active ? "rgba(255,255,255,0.15)" : "transparent",
+    border: "none", cursor: "pointer", borderRadius: 8, padding: 6,
+    display: "flex", alignItems: "center", justifyContent: "center",
+    color: active ? "#fff" : "rgba(255,255,255,0.72)", ...sx,
+  }}>
+    <Icon s={size} />
+  </button>
+);
+
+// ─── SONG ROW ──────────────────────────────────────────────────────────────
+const SongRow = ({ song, index, isActive, onPlay, onLike, onDelete }) => (
+  <div onClick={onPlay} style={{
+    display: "flex", alignItems: "center", gap: 12, padding: "10px 10px",
+    borderRadius: 14, cursor: "pointer",
+    background: isActive ? "rgba(var(--accent-rgb),0.12)" : "transparent",
+    boxShadow: isActive ? "inset 3px 0 0 var(--accent)" : "none",
+    transition: "background 0.15s",
+  }}>
+    {index !== undefined && (
+      <div style={{ width: 20, textAlign: "center", fontSize: 12, color: isActive ? "var(--accent-soft)" : "rgba(255,255,255,0.3)", fontWeight: 600, flexShrink: 0 }}>
+        {isActive ? <IcMusic s={13} /> : index}
+      </div>
+    )}
+    <AlbumArt song={song} size={44} />
+    <div style={{ flex: 1, minWidth: 0 }}>
+      <div style={{ fontSize: 14, fontWeight: 600, color: isActive ? "var(--accent-soft)" : "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{song.title}</div>
+      <div style={{ fontSize: 11, color: "rgba(255,255,255,0.55)", marginTop: 2 }}>{song.artist}</div>
+    </div>
+    <div style={{ display: "flex", alignItems: "center", gap: 2, flexShrink: 0 }}>
+      {onLike && (
+        <button onClick={e => { e.stopPropagation(); onLike(); }} style={{ background: "none", border: "none", cursor: "pointer", padding: 4, display: "flex", color: "rgba(255,255,255,0.5)" }}>
+          <IcHeart s={15} filled={song.liked} />
+        </button>
+      )}
+      <span style={{ fontSize: 11, color: "rgba(255,255,255,0.64)", minWidth: 30, textAlign: "right" }}>{fmt(song.duration)}</span>
+      {onDelete && (
+        <button onClick={e => { e.stopPropagation(); onDelete(); }} style={{ background: "none", border: "none", cursor: "pointer", padding: 4, display: "flex", color: "rgba(255,80,80,0.5)", marginLeft: 2 }}>
+          <IcTrash s={14} />
+        </button>
+      )}
+    </div>
+  </div>
+);
+
+// ─── PLAYER HOOK ───────────────────────────────────────────────────────────
+const usePlayer = (songs) => {
+  const [currentIdx, setCurrentIdx]   = useState(null);
+  const [isPlaying, setIsPlaying]     = useState(false);
+  const [progress, setProgress]       = useState(0);
+  const [duration, setDuration]       = useState(0);
+  const [volume, setVolume]           = useState(80);
+  const [shuffle, setShuffle]         = useState(false);
+  const [repeat, setRepeat]           = useState(false);
+  const audioRef = useRef(null);
+
+  const currentSong = currentIdx !== null ? songs[currentIdx] : null;
+
+  // Init audio element
+  useEffect(() => {
+    const audio = new Audio();
+    audio.volume = 0.8;
+    audioRef.current = audio;
+
+    audio.addEventListener("timeupdate", () => setProgress(audio.currentTime));
+    audio.addEventListener("durationchange", () => setDuration(audio.duration));
+    audio.addEventListener("ended", () => {
+      if (audio._repeat) {
+        audio.currentTime = 0;
+        audio.play();
+      } else {
+        audio._playNext?.();
+      }
+    });
+
+    return () => { audio.pause(); audio.src = ""; };
+  }, []);
+
+  // Sync volume
+  useEffect(() => {
+    if (audioRef.current) audioRef.current.volume = volume / 100;
+  }, [volume]);
+
+  // Load song when currentIdx changes
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio || currentIdx === null || !songs[currentIdx]) return;
+    const song = songs[currentIdx];
+    if (!song.url) return;
+    audio.src = song.url;
+    audio.load();
+    if (isPlaying) audio.play().catch(() => {});
+  }, [currentIdx, songs]);
+
+  // Sync repeat flag to audio
+  useEffect(() => {
+    if (audioRef.current) audioRef.current._repeat = repeat;
+  }, [repeat]);
+
+  const playNext = useCallback(() => {
+    if (!songs.length) return;
+    if (shuffle) {
+      setCurrentIdx(Math.floor(Math.random() * songs.length));
+    } else {
+      setCurrentIdx(i => (i === null ? 0 : (i + 1) % songs.length));
+    }
+    setIsPlaying(true);
+  }, [songs, shuffle]);
+
+  const playPrev = useCallback(() => {
+    if (!songs.length) return;
+    setCurrentIdx(i => (i === null ? 0 : (i - 1 + songs.length) % songs.length));
+    setIsPlaying(true);
+  }, [songs]);
+
+  // Attach playNext to audio
+  useEffect(() => {
+    if (audioRef.current) audioRef.current._playNext = playNext;
+  }, [playNext]);
+
+  const selectSong = useCallback((idx) => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    const song = songs[idx];
+    if (!song?.url) return;
+    setCurrentIdx(idx);
+    audio.src = song.url;
+    audio.load();
+    audio.play().catch(() => {});
+    setIsPlaying(true);
+  }, [songs]);
+
+  const togglePlay = useCallback(() => {
+    const audio = audioRef.current;
+    if (!audio || currentIdx === null) return;
+    if (isPlaying) { audio.pause(); setIsPlaying(false); }
+    else { audio.play().catch(() => {}); setIsPlaying(true); }
+  }, [isPlaying, currentIdx]);
+
+  const seek = useCallback((t) => {
+    if (audioRef.current) audioRef.current.currentTime = t;
+    setProgress(t);
+  }, []);
+
+  return {
+    currentSong, currentIdx, isPlaying, progress, duration,
+    volume, setVolume, shuffle, setShuffle, repeat, setRepeat,
+    togglePlay, playNext, playPrev, selectSong, seek,
+  };
+};
+
+// ─── BANNER EDITOR MODAL ───────────────────────────────────────────────────
+const BannerEditor = ({ banner, onSave, onClose }) => {
+  const [local, setLocal]   = useState({ ...banner });
+  const [tab, setTab]       = useState("preset"); // "preset" | "custom" | "image"
+  const imgRef              = useRef();
+
+  const handleImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => setLocal(b => ({ ...b, type: "image", image: ev.target.result }));
+    reader.readAsDataURL(file);
+  };
+
+  const previewStyle = local.type === "image" && local.image
+    ? { background: `url(${local.image}) center/cover no-repeat` }
+    : { background: `linear-gradient(135deg, ${local.from || "#1a1a3e"} 0%, ${local.mid || "#2d1b69"} 50%, ${local.to || "#1e3a8a"} 100%)` };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(0,0,0,0.85)", display: "flex", alignItems: "flex-end" }}>
+      <div style={{ width: "100%", background: "var(--panel)", borderRadius: "20px 20px 0 0", maxHeight: "90dvh", overflowY: "auto", padding: "0 0 40px" }}>
+        {/* Handle */}
+        <div style={{ display: "flex", justifyContent: "center", padding: "12px 0 0" }}>
+          <div style={{ width: 36, height: 4, background: "rgba(255,255,255,0.2)", borderRadius: 99 }} />
+        </div>
+
+        {/* Header */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 20px 16px" }}>
+          <div style={{ fontSize: 16, fontWeight: 700, color: "#fff" }}>Customize banner</div>
+          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.5)", display: "flex" }}>
+            <IcClose s={20} />
+          </button>
+        </div>
+
+        {/* Preview */}
+        <div style={{ margin: "0 16px 16px", height: 120, borderRadius: 16, overflow: "hidden", position: "relative", ...previewStyle }}>
+          <div style={{ position: "absolute", inset: 0, padding: "14px 16px", display: "flex", flexDirection: "column", justifyContent: "flex-end", background: "rgba(0,0,0,0.15)" }}>
+            <div style={{ fontSize: 18, fontWeight: 700, color: "#fff" }}>
+              {local.title || "My Music"}
+            </div>
+            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.6)", marginTop: 2 }}>
+              {local.subtitle || "Your personal collection"}
+            </div>
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <div style={{ display: "flex", gap: 0, margin: "0 16px 16px", background: "rgba(255,255,255,0.06)", borderRadius: 10, padding: 3 }}>
+          {[["preset","Preset"],["custom","Custom"],["image","Image"]].map(([id, label]) => (
+            <div key={id} onClick={() => setTab(id)} style={{
+              flex: 1, textAlign: "center", padding: "7px 0", fontSize: 12, fontWeight: 600,
+              borderRadius: 8, cursor: "pointer",
+              background: tab === id ? "rgba(var(--accent-rgb),0.4)" : "transparent",
+              color: tab === id ? "var(--accent-soft)" : "rgba(255,255,255,0.4)",
+              transition: "all 0.15s",
+            }}>{label}</div>
+          ))}
+        </div>
+
+        <div style={{ padding: "0 16px" }}>
+          {/* PRESET TAB */}
+          {tab === "preset" && (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              {BANNER_PRESETS.map(p => (
+                <div key={p.id} onClick={() => setLocal(b => ({ ...b, type: "gradient", from: p.from, mid: p.mid, to: p.to, accent: p.accent }))}
+                  style={{
+                    height: 64, borderRadius: 12, cursor: "pointer",
+                    background: `linear-gradient(135deg, ${p.from}, ${p.mid}, ${p.to})`,
+                    border: `2px solid ${(local.type !== "image" && local.from === p.from) ? p.accent : "transparent"}`,
+                    display: "flex", alignItems: "flex-end", padding: "8px 10px",
+                    transition: "border 0.15s",
+                  }}>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.8)" }}>{p.label}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* CUSTOM TAB */}
+          {tab === "custom" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              {[
+                { key: "from",  label: "Start color" },
+                { key: "mid",   label: "Mid color" },
+                { key: "to",    label: "End color" },
+                { key: "accent", label: "Accent color" },
+              ].map(({ key, label }) => (
+                <div key={key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <span style={{ fontSize: 13, color: "rgba(255,255,255,0.7)" }}>{label}</span>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <div style={{ width: 28, height: 28, borderRadius: 6, background: local[key] || "#fff", border: "1px solid rgba(255,255,255,0.2)" }} />
+                    <input type="color" value={local[key] || "#ffffff"}
+                      onChange={e => setLocal(b => ({ ...b, type: "gradient", [key]: e.target.value }))}
+                      style={{ width: 36, height: 36, borderRadius: 6, border: "none", cursor: "pointer", background: "none" }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* IMAGE TAB */}
+          {tab === "image" && (
+            <div>
+              <input ref={imgRef} type="file" accept="image/*" onChange={handleImageUpload} style={{ display: "none" }} />
+              <div onClick={() => imgRef.current?.click()} style={{
+                height: 80, borderRadius: 12, border: "2px dashed rgba(255,255,255,0.2)",
+                display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                cursor: "pointer", gap: 6, color: "rgba(255,255,255,0.64)",
+              }}>
+                <IcImage s={24} />
+                <span style={{ fontSize: 12 }}>Tap to upload banner image</span>
+              </div>
+              {local.image && (
+                <button onClick={() => setLocal(b => ({ ...b, type: "gradient", image: null }))} style={{
+                  marginTop: 10, width: "100%", background: "rgba(239,68,68,0.12)",
+                  border: "1px solid rgba(239,68,68,0.3)", borderRadius: 8,
+                  padding: "8px 0", fontSize: 12, color: "#FFB4A8", cursor: "pointer",
+                }}>Remove image</button>
+              )}
+            </div>
+          )}
+
+          {/* Text fields */}
+          <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 10 }}>
+            <div>
+              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.64)", marginBottom: 5 }}>Banner title</div>
+              <input value={local.title || ""} onChange={e => setLocal(b => ({ ...b, title: e.target.value }))}
+                placeholder="My Music"
+                style={{ width: "100%", boxSizing: "border-box", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "9px 12px", fontSize: 13, color: "#fff", outline: "none" }}
+              />
+            </div>
+            <div>
+              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.64)", marginBottom: 5 }}>Subtitle</div>
+              <input value={local.subtitle || ""} onChange={e => setLocal(b => ({ ...b, subtitle: e.target.value }))}
+                placeholder="Your personal collection"
+                style={{ width: "100%", boxSizing: "border-box", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, padding: "9px 12px", fontSize: 13, color: "#fff", outline: "none" }}
+              />
+            </div>
+          </div>
+
+          {/* Save */}
+          <button onClick={() => { onSave(local); onClose(); }} style={{
+            marginTop: 20, width: "100%", background: "var(--accent)",
+            border: "none", borderRadius: 12, padding: "13px 0", fontSize: 14,
+            fontWeight: 700, color: "#fff", cursor: "pointer",
+          }}>Save banner</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── HOME SCREEN ───────────────────────────────────────────────────────────
+const HomeScreen = ({ player, songs, setSongs, profile, banner, setBanner, onEditBanner, ytKey }) => {
+  const { currentSong, selectSong } = player;
+  const [mode, setMode] = useState("library");
+  const levelInfo = getLevelInfo(profile.xp);
+
+  const toggleLike = (id) => setSongs(prev => prev.map(s => s.id === id ? { ...s, liked: !s.liked } : s));
+
+  const bannerBg = banner.type === "image" && banner.image
+    ? { background: `url(${banner.image}) center/cover no-repeat` }
+    : { background: `linear-gradient(135deg, ${banner.from || "#1a1a3e"} 0%, ${banner.mid || "#2d1b69"} 50%, ${banner.to || "#1e3a8a"} 100%)` };
+
+  return (
+    <div style={{ paddingBottom: 176 }}>
+      {/* BANNER */}
+      <div style={{ borderRadius: 28, overflow: "hidden", ...bannerBg, position: "relative", marginBottom: 16 }}>
+        <div style={{ position: "absolute", inset: 0, background: banner.type === "image" && banner.image ? "rgba(0,0,0,0.4)" : "rgba(0,0,0,0.18)" }} />
+        
+
+        <div style={{ position: "relative", padding: "18px 18px 16px" }}>
+          {/* Top row */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+            <AvatarFrame profile={profile} size={42} simple />
+            <div>
+              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.55)" }}>Welcome back</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#fff" }}>{profile.name}</div>
+            </div>
+            <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
+              <div style={{ background: "rgba(255,255,255,0.12)", borderRadius: 20, padding: "3px 9px", display: "flex", alignItems: "center", gap: 4 }}>
+                <LevelBadge level={levelInfo} size={18} />
+                <span style={{ fontSize: 11, fontWeight: 700, color: "#fff" }}>{levelInfo.name}</span>
+              </div>
+              <button onClick={onEditBanner} style={{
+                width: 30, height: 30, borderRadius: "50%",
+                background: "rgba(255,255,255,0.12)", border: "none",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                cursor: "pointer", color: "rgba(255,255,255,0.7)",
+              }}>
+                <IcPaint s={14} />
+              </button>
+            </div>
+          </div>
+
+          {/* Title */}
+          <div className="disp" style={{ fontSize: 34, fontWeight: 700, color: "#fff", lineHeight: 1.05, margin: "26px 0 10px" }}>
+            {banner.title || "Your Daily"}<br />
+            <span style={{ color: banner.accent || "var(--accent-soft)" }}>{banner.subtitle || "Mix"}</span>
+          </div>
+          <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)" }}>
+            {songs.length} {songs.length === 1 ? "track" : "tracks"} in your library
+          </div>
+        </div>
+        <div style={{ position: "absolute", right: 12, bottom: 12, display: "flex", gap: 6 }}>
+          {banner.type === "image" && banner.image && <button aria-label="Hapus foto banner" onClick={() => setBanner(b => ({ ...b, type: "gradient", image: null }))} style={{ width: 34, height: 34, borderRadius: "50%", background: "rgba(0,0,0,0.45)", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#fff", fontSize: 13 }}><IcClose s={15} /></button>}
+          <label aria-label="Ganti foto banner" style={{ width: 34, height: 34, borderRadius: "50%", background: "rgba(0,0,0,0.45)", border: "none", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#fff", fontSize: 13 }}>
+            <IcCamera s={15} />
+            <input type="file" accept="image/*" style={{ display: "none" }} onChange={async e => { const f = e.target.files?.[0]; e.target.value = ""; if (f) { try { const u = await readImage(f, 1000); setBanner(b => ({ ...b, type: "image", image: u })); } catch {} } }} />
+          </label>
+        </div>
+      </div>
+
+      {/* LEVEL BAR */}
+      <div style={{ background: "rgba(255,255,255,0.055)", borderRadius: 18, padding: "14px 16px", marginBottom: 20, border: "none" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 7 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <LevelBadge level={levelInfo} size={30} />
+            <span style={{ fontSize: 14, fontWeight: 700, color: "#fff" }}>Lv {levelInfo.idx} · {levelInfo.name}</span>
+          </div>
+          <span style={{ fontSize: 11, color: "rgba(255,255,255,0.64)" }}>{levelInfo.xp} XP</span>
+        </div>
+        <XPBar pct={levelInfo.pct} color={levelInfo.color} height={5} />
+        {levelInfo.next && (
+          <div style={{ fontSize: 10, color: "rgba(255,255,255,0.64)", marginTop: 5, textAlign: "right" }}>
+            {levelInfo.next.min - levelInfo.xp} XP to {levelInfo.next.name}
+          </div>
+        )}
+      </div>
+
+      <div role="tablist" style={{ display: "flex", gap: 4, padding: 4, borderRadius: 14, background: "rgba(255,255,255,0.07)", marginBottom: 16 }}>
+        {[["library", "Library"], ["online", "Online"]].map(([k, l]) => (
+          <button key={k} role="tab" aria-selected={mode === k} onClick={() => setMode(k)} style={{
+            flex: 1, border: "none", borderRadius: 11, padding: "9px 0", fontSize: 13, fontWeight: 700, cursor: "pointer",
+            background: mode === k ? "var(--accent)" : "transparent", color: mode === k ? "#fff" : "rgba(255,255,255,0.7)",
+          }}>{l}</button>
+        ))}
+      </div>
+
+      {/* LIBRARY */}
+      {mode === "online" ? <OnlineHome ytKey={ytKey} /> : songs.length === 0 ? (
+        <EmptyLibrary />
+      ) : (
+        <>
+          <div className="disp" style={{ fontSize: 20, fontWeight: 700, color: "#fff", marginBottom: 8 }}>
+            Your library
+          </div>
+          {songs.map((s, i) => (
+            <SongRow
+              key={s.id} song={s} index={i + 1}
+              isActive={currentSong?.id === s.id}
+              onPlay={() => selectSong(i)}
+              onLike={() => toggleLike(s.id)}
+              onDelete={() => setSongs(prev => prev.filter(x => x.id !== s.id))}
+            />
+          ))}
+        </>
+      )}
+    </div>
+  );
+};
+
+// ─── EMPTY LIBRARY ─────────────────────────────────────────────────────────
+const EmptyLibrary = () => (
+  <div style={{ textAlign: "center", padding: "40px 20px" }}>
+    <div style={{
+      width: 80, height: 80, borderRadius: "50%",
+      background: "rgba(var(--accent-rgb),0.1)", border: "1px solid rgba(var(--accent-rgb),0.2)",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      margin: "0 auto 16px", color: "var(--accent)",
+    }}>
+      <IcMusic s={36} />
+    </div>
+    <div className="disp" style={{ fontSize: 20, fontWeight: 700, color: "#fff", marginBottom: 6 }}>No music yet</div>
+    <div style={{ fontSize: 13, color: "rgba(255,255,255,0.64)", lineHeight: 1.5 }}>
+      Upload your music files using<br />the Upload tab below
+    </div>
+  </div>
+);
+
+// ─── UPLOAD SCREEN ─────────────────────────────────────────────────────────
+const UploadScreen = ({ songs, setSongs }) => {
+  const inputRef = useRef();
+  const [dragging, setDragging] = useState(false);
+  const [uploading, setUploading] = useState(false);
+
+  const processFiles = (files) => {
+    const audioFiles = Array.from(files).filter(f => f.type.startsWith("audio/"));
+    if (!audioFiles.length) return;
+    setUploading(true);
+
+    const readers = audioFiles.map(file => new Promise(resolve => {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const url = ev.target.result;
+        const audio = new Audio(url);
+        audio.addEventListener("loadedmetadata", () => {
+          const rawName = file.name.replace(/\.[^/.]+$/, "");
+          const parts   = rawName.split(" - ");
+          resolve({
+            id:       genId(),
+            title:    parts[1]?.trim() || rawName,
+            artist:   parts[0]?.trim() || "Unknown Artist",
+            album:    "My Library",
+            duration: audio.duration || 0,
+            liked:    false,
+            cover:    null,
+            url,
+          });
+        });
+        audio.addEventListener("error", () => {
+          resolve({
+            id:       genId(),
+            title:    file.name.replace(/\.[^/.]+$/, ""),
+            artist:   "Unknown Artist",
+            album:    "My Library",
+            duration: 0,
+            liked:    false,
+            cover:    null,
+            url,
+          });
+        });
+      };
+      reader.readAsDataURL(file);
+    }));
+
+    Promise.all(readers).then(newSongs => {
+      setSongs(prev => [...prev, ...newSongs]);
+      setUploading(false);
+    });
+  };
+
+  const onDrop = (e) => {
+    e.preventDefault();
+    setDragging(false);
+    processFiles(e.dataTransfer.files);
+  };
+
+  const toggleLike = (id) => setSongs(prev => prev.map(s => s.id === id ? { ...s, liked: !s.liked } : s));
+  const deleteSong = (id) => setSongs(prev => prev.filter(s => s.id !== id));
+
+  return (
+    <div style={{ paddingBottom: 176 }}>
+      {/* Drop zone */}
+      <div
+        onDragOver={e => { e.preventDefault(); setDragging(true); }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={onDrop}
+        onClick={() => inputRef.current?.click()}
+        style={{
+          borderRadius: 16,
+          border: `2px dashed ${dragging ? "var(--accent)" : "rgba(255,255,255,0.15)"}`,
+          background: dragging ? "rgba(var(--accent-rgb),0.08)" : "rgba(255,255,255,0.03)",
+          padding: "32px 20px",
+          textAlign: "center",
+          cursor: "pointer",
+          marginBottom: 20,
+          transition: "all 0.15s",
+        }}>
+        <div style={{ color: dragging ? "var(--accent)" : "rgba(255,255,255,0.35)", marginBottom: 12 }}>
+          <IcUpload s={36} />
+        </div>
+        <div style={{ fontSize: 15, fontWeight: 700, color: dragging ? "var(--accent-soft)" : "#fff", marginBottom: 4 }}>
+          {uploading ? "Processing..." : "Upload music"}
+        </div>
+        <div style={{ fontSize: 12, color: "rgba(255,255,255,0.64)" }}>
+          Tap to browse or drag & drop audio files<br />
+          <span style={{ color: "rgba(255,255,255,0.64)", fontSize: 11 }}>MP3, WAV, AAC, FLAC, OGG supported</span>
+        </div>
+        <input ref={inputRef} type="file" accept="audio/*" multiple onChange={e => processFiles(e.target.files)} style={{ display: "none" }} />
+      </div>
+
+      {/* Tip: naming */}
+      <div style={{ background: "rgba(var(--accent-rgb),0.08)", border: "1px solid rgba(var(--accent-rgb),0.2)", borderRadius: 12, padding: "10px 14px", marginBottom: 20 }}>
+        <div style={{ fontSize: 12, fontWeight: 600, color: "var(--accent-soft)", marginBottom: 3 }}>Tip: Auto-detect artist</div>
+        <div style={{ fontSize: 11, color: "rgba(255,255,255,0.64)", lineHeight: 1.6 }}>
+          Name your files as <span style={{ color: "rgba(255,255,255,0.65)" }}>Artist - Song Title.mp3</span> and SICAC will auto-fill the artist name.
+        </div>
+      </div>
+
+      {/* Song list */}
+      {songs.length > 0 && (
+        <>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "#fff" }}>
+              Uploaded ({songs.length})
+            </div>
+            <button onClick={() => setSongs([])} style={{
+              background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.25)",
+              borderRadius: 8, padding: "5px 12px", fontSize: 11, color: "#FFB4A8", cursor: "pointer",
+            }}>Clear all</button>
+          </div>
+          {songs.map((s, i) => (
+            <SongRow key={s.id} song={s} index={i + 1} isActive={false}
+              onPlay={() => {}} onLike={() => toggleLike(s.id)} onDelete={() => deleteSong(s.id)} />
+          ))}
+        </>
+      )}
+    </div>
+  );
+};
+
+// ─── HISTORY SCREEN ────────────────────────────────────────────────────────
+const HistoryScreen = ({ history }) => {
+  if (!history.length) return (
+    <div style={{ textAlign: "center", padding: "60px 20px", paddingBottom: 176 }}>
+      <div style={{ color: "rgba(255,255,255,0.64)", marginBottom: 12 }}><IcHistory s={40} /></div>
+      <div style={{ fontSize: 15, fontWeight: 600, color: "rgba(255,255,255,0.64)" }}>No history yet</div>
+      <div style={{ fontSize: 12, color: "rgba(255,255,255,0.64)", marginTop: 4 }}>Play some music to see it here</div>
+    </div>
+  );
+
+  return (
+    <div style={{ paddingBottom: 176 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(255,255,255,0.06)", borderRadius: 18, padding: "12px 16px", marginBottom: 16 }}>
+        <IcHistory s={15} />
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: "#fff" }}>Listening History</div>
+          <div style={{ fontSize: 11, color: "rgba(255,255,255,0.64)" }}>{history.length} tracks played</div>
+        </div>
+      </div>
+      {history.map((h, i) => (
+        <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "9px 0", borderBottom: "1px solid rgba(255,255,255,0.055)" }}>
+          <AlbumArt song={h} size={42} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{h.title}</div>
+            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.64)", marginTop: 1 }}>{h.artist}</div>
+          </div>
+          <div style={{ textAlign: "right", flexShrink: 0 }}>
+            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.64)" }}>{h.playedAt}</div>
+            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.64)", marginTop: 1 }}>{fmt(h.duration)}</div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+// ─── PROFILE SCREEN ────────────────────────────────────────────────────────
+const ProfileScreen = ({ profile, setProfile, songs, profileBanner, setProfileBanner }) => {
+  const fileRef = useRef();
+  const [frameOpen, setFrameOpen] = useState(false);
+  const levelInfo = getLevelInfo(profile.xp);
+  const [editing, setEditing] = useState(false);
+  const [tmpName, setTmpName] = useState(profile.name);
+  const [tmpBio,  setTmpBio]  = useState(profile.bio);
+
+  const handleAvatar = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const r = new FileReader();
+    r.onload = (ev) => setProfile(p => ({ ...p, avatar: ev.target.result }));
+    r.readAsDataURL(file);
+  };
+
+  const stats = [
+    { label: "Songs", value: songs.length },
+    { label: "Liked", value: songs.filter(s => s.liked).length },
+    { label: "XP",    value: profile.xp.toLocaleString() },
+    { label: "Level", value: `LVL ${levelInfo.idx}` },
+  ];
+
+  return (
+    <div style={{ paddingBottom: 176 }}>
+      {/* Hero card */}
+      <div style={{ position: "relative", background: profileBanner?.image ? `linear-gradient(180deg,rgba(var(--bg-rgb),0.2) 0%,rgba(var(--bg-rgb),0.88) 100%), url(${profileBanner.image}) center/cover no-repeat` : "linear-gradient(160deg,var(--hero1) 0%,var(--hero2) 60%,var(--panel) 100%)", borderRadius: 20, padding: profileBanner?.image ? "64px 18px 18px" : "22px 18px 18px", marginBottom: 14 }}>
+        <label aria-label="Ubah banner profil" style={{ position: "absolute", top: 12, right: 12, width: 34, height: 34, borderRadius: "50%", background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#fff" }}>
+          <IcCamera s={15} />
+          <input type="file" accept="image/*" style={{ display: "none" }} onChange={async e => { const f = e.target.files?.[0]; e.target.value = ""; if (f) { try { const u = await readImage(f, 1000); setProfileBanner({ image: u }); } catch {} } }} />
+        </label>
+        {profileBanner?.image && <button aria-label="Hapus foto banner" onClick={() => setProfileBanner({ image: null })} style={{ position: "absolute", top: 12, right: 54, width: 34, height: 34, borderRadius: "50%", background: "rgba(0,0,0,0.45)", border: "none", color: "#fff", cursor: "pointer", fontSize: 13 }}><IcClose s={15} /></button>}
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
+          <div style={{ position: "relative" }}>
+            <AvatarFrame profile={profile} size={84} />
+            <button onClick={() => fileRef.current?.click()} style={{
+              position: "absolute", bottom: 6, right: 22, width: 24, height: 24,
+              borderRadius: "50%", background: "var(--accent)", border: "2px solid var(--bg)",
+              cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff",
+            }}><IcCamera s={11} /></button>
+            <input ref={fileRef} type="file" accept="image/*" onChange={handleAvatar} style={{ display: "none" }} />
+            {frameOpen && (
+              <div onClick={() => setFrameOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 250, background: "rgba(0,0,0,0.72)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+                <div role="dialog" aria-modal="true" aria-label="Pilih bingkai" onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 400, maxHeight: "86dvh", overflowY: "auto", background: "var(--panel)", borderRadius: 24, padding: 18, boxShadow: "0 24px 60px rgba(0,0,0,0.6)" }}>
+                  <div className="disp" style={{ fontSize: 20, fontWeight: 700, color: "#fff", marginBottom: 14 }}>Pilih bingkai</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+                    {FRAMES.map(f => {
+                      const on = (profile.frame || "basic") === f.id;
+                      return (
+                        <button key={f.id} aria-pressed={on} onClick={() => setProfile(p => ({ ...p, frame: f.id }))} style={frameTile(on)}>
+                          <AvatarFrame profile={{ ...profile, frame: f.id }} size={58} />
+                          <span style={{ fontSize: 12, fontWeight: 600 }}>{f.name}</span>
+                        </button>
+                      );
+                    })}
+                                      </div>
+                                    <button onClick={() => setFrameOpen(false)} style={{ width: "100%", marginTop: 14, background: "var(--accent)", border: "none", borderRadius: 12, padding: 12, fontSize: 14, fontWeight: 700, color: "#fff", cursor: "pointer" }}>Selesai</button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div style={{ flex: 1, minWidth: 0 }}>
+            {editing ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+                <input value={tmpName} onChange={e => setTmpName(e.target.value)}
+                  style={{ width: "100%", boxSizing: "border-box", background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 8, padding: "6px 10px", fontSize: 15, fontWeight: 700, color: "#fff", outline: "none" }} />
+                <input value={tmpBio} onChange={e => setTmpBio(e.target.value)}
+                  style={{ width: "100%", boxSizing: "border-box", background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 8, padding: "6px 10px", fontSize: 12, color: "rgba(255,255,255,0.6)", outline: "none" }} />
+                <div style={{ display: "flex", gap: 7 }}>
+                  <button onClick={() => { setProfile(p => ({ ...p, name: tmpName, bio: tmpBio })); setEditing(false); }}
+                    style={{ background: "var(--accent)", border: "none", borderRadius: 8, padding: "6px 14px", fontSize: 12, fontWeight: 600, color: "#fff", cursor: "pointer" }}>Save</button>
+                  <button onClick={() => setEditing(false)}
+                    style={{ background: "rgba(255,255,255,0.1)", border: "none", borderRadius: 8, padding: "6px 14px", fontSize: 12, color: "rgba(255,255,255,0.6)", cursor: "pointer" }}>Cancel</button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="disp" style={{ fontSize: 22, fontWeight: 700, color: "#fff" }}>{profile.name}</div>
+                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.64)", marginTop: 3, lineHeight: 1.4 }}>{profile.bio}</div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}><button onClick={() => setEditing(true)} style={{
+                  marginTop: 10, background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.15)",
+                  borderRadius: 8, padding: "6px 12px", fontSize: 12, color: "#fff", cursor: "pointer",
+                  display: "flex", alignItems: "center", gap: 5,
+                }}><IcEdit s={12} /> Edit</button>
+                <button onClick={() => setFrameOpen(true)} aria-haspopup="dialog" style={{ marginTop: 10, background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 8, padding: "6px 12px", fontSize: 12, color: "#fff", cursor: "pointer" }}>Bingkai</button>
+              </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Level */}
+        <div style={{ marginTop: 18, background: "rgba(255,255,255,0.06)", borderRadius: 12, padding: "11px 13px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 7 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+              <LevelBadge level={levelInfo} size={32} />
+              <span style={{ fontSize: 14, fontWeight: 700, color: "#fff" }}>Lv {levelInfo.idx} · {levelInfo.name}</span>
+            </div>
+            <span style={{ fontSize: 11, color: "rgba(255,255,255,0.64)" }}>{levelInfo.xp.toLocaleString()} XP</span>
+          </div>
+          <XPBar pct={levelInfo.pct} color={levelInfo.color} height={7} />
+          {levelInfo.next && (
+            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 5 }}>
+              <span style={{ fontSize: 10, color: "rgba(255,255,255,0.64)" }}>{levelInfo.name}</span>
+              <span style={{ fontSize: 10, color: "rgba(255,255,255,0.64)" }}>{levelInfo.next.name}</span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Stats */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 14 }}>
+        {stats.map(s => (
+          <div key={s.label} style={{ background: "rgba(255,255,255,0.055)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 18, padding: "14px 16px" }}>
+            <div style={{ fontSize: 20, fontWeight: 700, color: "#fff" }}>{s.value}</div>
+            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.64)", marginTop: 2 }}>{s.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Milestones */}
+      <div style={{ background: "rgba(255,255,255,0.06)", borderRadius: 20, padding: "14px", border: "1px solid rgba(255,255,255,0.06)" }}>
+        <div className="disp" style={{ fontSize: 18, fontWeight: 700, color: "#fff", marginBottom: 14 }}>Level milestones</div>
+        {LEVELS.map((l, i) => {
+          const reached = profile.xp >= l.min;
+          return (
+            <div key={l.name} style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: i < LEVELS.length - 1 ? 12 : 0 }}>
+              <LevelBadge level={l} size={34} dim={!reached} />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: reached ? "#fff" : "rgba(255,255,255,0.38)" }}>{l.name}</div>
+                <div style={{ fontSize: 11, color: "rgba(255,255,255,0.64)" }}>Lv {i} · {l.min.toLocaleString()} XP</div>
+              </div>
+              {reached && <span style={{ display: "flex", color: l.color }}><IcCheck s={16} /></span>}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+// ─── SETTINGS SCREEN ───────────────────────────────────────────────────────
+const SettingsScreen = ({ banner, setBanner, themeId, setThemeId }) => {
+  const [themeOpen, setThemeOpen] = useState(false);
+  const curTheme = THEMES.find(t => t.id === themeId) || THEMES[0];
+  const [notif, setNotif]   = useState(true);
+  const [hq, setHq]         = useState(true);
+  const [offline, setOffline] = useState(false);
+
+  const Row = ({ icon: Icon, label, desc, right }) => (
+    <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 0", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+      <div style={{ width: 38, height: 38, borderRadius: 11, background: "rgba(255,255,255,0.08)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+        <Icon s={19} />
+      </div>
+      <div style={{ flex: 1 }}>
+        <div style={{ fontSize: 13, fontWeight: 500, color: "#fff" }}>{label}</div>
+        {desc && <div style={{ fontSize: 11, color: "rgba(255,255,255,0.64)", marginTop: 1 }}>{desc}</div>}
+      </div>
+      {right}
+    </div>
+  );
+
+  return (
+    <div style={{ paddingBottom: 176 }}>
+      <div style={{ background: "rgba(255,255,255,0.06)", borderRadius: 20, padding: "0 14px 14px", marginBottom: 14 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,0.6)", padding: "14px 0 10px" }}>Tema</div>
+        <button onClick={() => setThemeOpen(true)} aria-haspopup="dialog" style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "11px 12px", borderRadius: 14, border: "1px solid rgba(255,255,255,0.16)", background: "rgba(255,255,255,0.06)", color: "#fff", cursor: "pointer", textAlign: "left" }}>
+          <span style={{ display: "flex" }}>
+            <span style={{ width: 24, height: 24, borderRadius: "50%", background: curTheme.hero2, border: "2px solid var(--panel)" }} />
+            <span style={{ width: 24, height: 24, borderRadius: "50%", background: curTheme.accent, marginLeft: -8, border: "2px solid var(--panel)" }} />
+          </span>
+          <span style={{ flex: 1, fontSize: 14, fontWeight: 700 }}>{curTheme.name}</span>
+          <span style={{ fontSize: 12, fontWeight: 700, color: "var(--accent-soft)" }}>Ubah</span>
+        </button>
+        {themeOpen && (
+          <div onClick={() => setThemeOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 250, background: "rgba(0,0,0,0.72)", display: "flex", alignItems: "center", justifyContent: "center", padding: 18 }}>
+            <div role="dialog" aria-modal="true" aria-label="Pilih tema" onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 380, background: "var(--panel)", borderRadius: 24, padding: 18, boxShadow: "0 24px 60px rgba(0,0,0,0.6)" }}>
+              <div className="disp" style={{ fontSize: 20, fontWeight: 700, color: "#fff", marginBottom: 14 }}>Pilih tema</div>
+        <div role="radiogroup" aria-label="Tema" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          {THEMES.map(t => {
+            const on = themeId === t.id;
+            return (
+              <button key={t.id} role="radio" aria-checked={on} onClick={() => setThemeId(t.id)} style={{
+                textAlign: "left", cursor: "pointer", padding: 8, borderRadius: 16, background: t.bg, color: "#fff",
+                border: `2px solid ${on ? t.soft : "rgba(255,255,255,0.14)"}`,
+              }}>
+                <div style={{ height: 56, borderRadius: 10, position: "relative", overflow: "hidden", background: `linear-gradient(160deg,${t.hero1},${t.hero2})` }}>
+                  <div style={{ position: "absolute", left: 8, top: 9, width: 52, height: 6, borderRadius: 99, background: "rgba(255,255,255,0.9)" }} />
+                  <div style={{ position: "absolute", left: 8, bottom: 8, width: 36, height: 12, borderRadius: 99, background: t.accent }} />
+                  <div style={{ position: "absolute", right: 8, bottom: 8, width: 18, height: 18, borderRadius: "50%", background: t.soft }} />
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 4px 2px", fontSize: 13, fontWeight: 700 }}>
+                  {t.name}{on && <span style={{ display: "flex", color: t.soft }}><IcCheck s={16} /></span>}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+              <button onClick={() => setThemeOpen(false)} style={{ width: "100%", marginTop: 14, background: "var(--accent)", border: "none", borderRadius: 12, padding: 12, fontSize: 14, fontWeight: 700, color: "#fff", cursor: "pointer" }}>Selesai</button>
+            </div>
+          </div>
+        )}
+        <div style={{ fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,0.6)", padding: "18px 0 8px" }}>Teks banner</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <input value={banner.title || ""} onChange={e => setBanner(b => ({ ...b, title: e.target.value }))} placeholder="Baris pertama, mis. Your Daily" maxLength={24}
+            style={{ width: "100%", boxSizing: "border-box", background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 10, padding: "10px 12px", fontSize: 14, color: "#fff", outline: "none" }} />
+          <input value={banner.subtitle || ""} onChange={e => setBanner(b => ({ ...b, subtitle: e.target.value }))} placeholder="Baris kedua, mis. Mix" maxLength={24}
+            style={{ width: "100%", boxSizing: "border-box", background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 10, padding: "10px 12px", fontSize: 14, color: "#fff", outline: "none" }} />
+        </div>
+      </div>
+      <div style={{ background: "rgba(255,255,255,0.06)", borderRadius: 20, padding: "0 14px", marginBottom: 14, border: "1px solid rgba(255,255,255,0.06)" }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,0.6)", padding: "14px 0 6px" }}>Playback</div>
+        <Row icon={IcVolume}   label="High quality audio"   desc="320kbps streaming"        right={<Toggle value={hq}      onChange={setHq} />} />
+        <Row icon={IcDownload} label="Offline downloads"    desc="Save to device storage"   right={<Toggle value={offline} onChange={setOffline} />} />
+      </div>
+      <div style={{ background: "rgba(255,255,255,0.06)", borderRadius: 20, padding: "0 14px", marginBottom: 14, border: "1px solid rgba(255,255,255,0.06)" }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,0.6)", padding: "14px 0 6px" }}>Notifications</div>
+        <Row icon={IcBell} label="Push notifications" desc="New music & updates" right={<Toggle value={notif} onChange={setNotif} />} />
+      </div>
+      <div style={{ background: "rgba(255,255,255,0.06)", borderRadius: 20, padding: "0 14px", border: "1px solid rgba(255,255,255,0.06)" }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,0.6)", padding: "14px 0 6px" }}>Account</div>
+        <Row icon={IcLock} label="Privacy & security" desc="Manage your data" right={<span style={{ display: "flex", color: "rgba(255,255,255,0.5)" }}><IcChevron s={16} /></span>} />
+        <Row icon={IcUser} label="Connected accounts" desc="Manage integrations" right={<span style={{ display: "flex", color: "rgba(255,255,255,0.5)" }}><IcChevron s={16} /></span>} />
+      </div>
+      <div style={{ marginTop: 24, background: "rgba(255,255,255,0.06)", borderRadius: 20, padding: "18px 16px", border: "1px solid rgba(255,255,255,0.06)", textAlign: "center" }}>
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 10 }}><Logo s={46} /></div>
+        <div style={{ fontSize: 15, fontWeight: 700, color: "#fff", marginBottom: 4 }}>SICAC</div>
+        <div style={{ fontSize: 11, color: "rgba(255,255,255,0.64)", marginBottom: 14 }}>Music Player v2.0.0</div>
+        <div style={{ width: 32, height: 1, background: "rgba(255,255,255,0.1)", margin: "0 auto 14px" }} />
+        <div style={{ fontSize: 11, color: "rgba(255,255,255,0.64)", marginBottom: 5 }}>Developed by</div>
+        <div style={{ fontSize: 14, fontWeight: 700, color: "#fff", marginBottom: 2 }}>devnsepele</div>
+        <div style={{ fontSize: 11, color: "rgba(255,255,255,0.64)" }}>All rights reserved © 2025</div>
+      </div>
+    </div>
+  );
+};
+
+// ─── MINI PLAYER ───────────────────────────────────────────────────────────
+const MiniPlayer = ({ player, onExpand }) => {
+  const { currentSong, isPlaying, progress, duration, togglePlay, playNext } = player;
+  if (!currentSong) return null;
+  const pct = duration ? (progress / duration) * 100 : 0;
+
+  return (
+    <div style={{ position: "fixed", bottom: "calc(env(safe-area-inset-bottom,0px) + 86px)", left: 0, right: 0, zIndex: 40, padding: "0 14px" }}>
+      <div style={{ background: "var(--mini)", backdropFilter: "blur(20px)", borderRadius: 20, border: "1px solid rgba(255,255,255,0.1)", overflow: "hidden", boxShadow: "0 10px 30px rgba(0,0,0,0.4)" }}>
+        <div style={{ height: 2, background: "rgba(255,255,255,0.08)" }}>
+          <div style={{ height: "100%", width: `${pct}%`, background: "var(--accent)", transition: "width 0.8s linear" }} />
+        </div>
+        <div onClick={onExpand} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 13px", cursor: "pointer" }}>
+          <AlbumArt song={currentSong} size={38} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{currentSong.title}</div>
+            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.64)" }}>{currentSong.artist}</div>
+          </div>
+          <div style={{ display: "flex", gap: 2 }} onClick={e => e.stopPropagation()}>
+            <IconBtn icon={isPlaying ? IcPause : IcPlay} onClick={togglePlay} size={17} sx={{ padding: 7 }} />
+            <IconBtn icon={IcNext} onClick={playNext} size={17} sx={{ padding: 7 }} />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── FULL PLAYER ───────────────────────────────────────────────────────────
+const FullPlayer = ({ player, songs, setSongs, onClose, playerBg, setPlayerBg }) => {
+  const { currentSong, isPlaying, progress, duration, volume, setVolume, shuffle, setShuffle, repeat, setRepeat, togglePlay, playNext, playPrev, seek } = player;
+  if (!currentSong) return null;
+  const song   = songs.find(s => s.id === currentSong.id) || currentSong;
+  const pct    = duration ? (progress / duration) * 100 : 0;
+  const toggleLike = () => setSongs(prev => prev.map(s => s.id === currentSong.id ? { ...s, liked: !s.liked } : s));
+  const bg = playerBg
+    ? `linear-gradient(180deg,rgba(var(--bg-rgb),0.45) 0%,rgba(var(--bg-rgb),0.82) 55%,var(--bg) 100%), url(${playerBg}) center/cover no-repeat`
+    : "radial-gradient(120% 60% at 50% 0%,var(--glow) 0%,var(--deep) 50%,var(--bg) 100%)";
+  const glass = { width: 36, height: 36, borderRadius: "50%", border: "none", background: "rgba(255,255,255,0.14)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: 13 };
+  const track = (v) => ({ background: `linear-gradient(to right,var(--accent-soft) ${v}%,rgba(255,255,255,0.22) ${v}%)` });
+
+  return (
+    <div role="dialog" aria-label="Sedang diputar" style={{ position: "fixed", inset: 0, zIndex: 100, background: bg, overflowY: "auto", display: "flex", flexDirection: "column", padding: "calc(env(safe-area-inset-top,0px) + 14px) 22px calc(env(safe-area-inset-bottom,0px) + 24px)" }}>
+      {/* Top */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+        <button onClick={onClose} aria-label="Tutup pemutar" style={glass}>
+          <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div style={{ textAlign: "center", minWidth: 0 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--accent-soft)", letterSpacing: 0.4 }}>Sedang diputar</div>
+          <div style={{ fontSize: 13, color: "rgba(255,255,255,0.8)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 170 }}>{currentSong.album || "Single"}</div>
+        </div>
+        <div style={{ display: "flex", gap: 6 }}>
+          {playerBg && <button onClick={() => setPlayerBg(null)} aria-label="Hapus foto banner" style={glass}><IcClose s={15} /></button>}
+          <label aria-label="Ganti foto banner musik" style={glass}>
+            <IcCamera s={15} />
+            <input type="file" accept="image/*" style={{ display: "none" }} onChange={async e => { const f = e.target.files?.[0]; e.target.value = ""; if (f) { try { setPlayerBg(await readImage(f, 1200)); } catch {} } }} />
+          </label>
+        </div>
+      </div>
+
+      {/* Art: sampul + piringan hitam */}
+      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: "18px 0", minHeight: 270 }}>
+        <div style={{ position: "relative", width: 300, height: 248 }}>
+          <div className="vinyl" style={{
+            position: "absolute", left: 52, top: 0, width: 248, height: 248, borderRadius: "50%",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            background: "repeating-radial-gradient(circle,#0c0a1a 0 2px,#1c1836 2px 4px)",
+            boxShadow: "0 18px 40px rgba(0,0,0,0.5), inset 0 0 0 3px rgba(255,255,255,0.06)",
+            animation: "spin 6s linear infinite", animationPlayState: isPlaying ? "running" : "paused",
+          }}>
+            <div style={{ width: 82, height: 82, borderRadius: "50%", background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <div style={{ width: 12, height: 12, borderRadius: "50%", background: "var(--bg)" }} />
+            </div>
+            <div style={{ position: "absolute", inset: 0, borderRadius: "50%", background: "conic-gradient(from 30deg,transparent 0 20%,rgba(255,255,255,0.08) 25%,transparent 30% 70%,rgba(255,255,255,0.08) 75%,transparent 80%)" }} />
+          </div>
+          <div style={{ position: "absolute", left: 0, top: 0, width: 248, height: 248, borderRadius: 24, overflow: "hidden", boxShadow: "0 24px 50px rgba(0,0,0,0.6)", transform: isPlaying ? "scale(1)" : "scale(0.94)", transition: "transform 0.45s ease" }}>
+            <AlbumArt song={currentSong} size={248} style={{ borderRadius: 24 }} />
+          </div>
+        </div>
+      </div>
+
+      {/* Info */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="disp" style={{ fontSize: 24, fontWeight: 700, color: "#fff", lineHeight: 1.15, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{currentSong.title}</div>
+          <div style={{ fontSize: 14, color: "rgba(255,255,255,0.75)", marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{currentSong.artist}</div>
+        </div>
+        <button onClick={toggleLike} aria-label="Suka" aria-pressed={!!song.liked} style={{ background: "rgba(255,255,255,0.1)", border: "none", cursor: "pointer", width: 44, height: 44, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <IcHeart s={22} filled={song.liked} />
+        </button>
+      </div>
+
+      {/* Seek */}
+      <div style={{ marginBottom: 14 }}>
+        <input className="seek" type="range" min={0} max={duration || 1} step={0.1} value={progress} aria-label="Posisi lagu"
+          onChange={e => seek(Number(e.target.value))} style={track(pct)} />
+        <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6 }}>
+          <span style={{ fontSize: 12, color: "rgba(255,255,255,0.7)" }}>{fmt(progress)}</span>
+          <span style={{ fontSize: 12, color: "rgba(255,255,255,0.7)" }}>{fmt(duration)}</span>
+        </div>
+      </div>
+
+      {/* Controls */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 22, padding: "0 4px" }}>
+        <IconBtn icon={IcShuffle} onClick={() => setShuffle(s => !s)} active={shuffle} size={20} />
+        <IconBtn icon={IcPrev}    onClick={playPrev} size={28} />
+        <button onClick={togglePlay} aria-label={isPlaying ? "Jeda" : "Putar"} style={{ width: 76, height: 76, borderRadius: "50%", border: "none", cursor: "pointer", background: "var(--accent)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 12px 30px rgba(var(--accent-rgb),0.45)" }}>
+          {isPlaying ? <IcPause s={28} /> : <IcPlay s={28} />}
+        </button>
+        <IconBtn icon={IcNext}   onClick={playNext} size={28} />
+        <IconBtn icon={IcRepeat} onClick={() => setRepeat(r => !r)} active={repeat} size={20} />
+      </div>
+
+      {/* Volume */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12, background: "rgba(255,255,255,0.08)", borderRadius: 16, padding: "12px 16px" }}>
+        <IcVolume s={16} />
+        <input className="seek" type="range" min={0} max={100} value={volume} aria-label="Volume"
+          onChange={e => setVolume(Number(e.target.value))} style={{ flex: 1, ...track(volume) }} />
+        <span style={{ fontSize: 12, color: "rgba(255,255,255,0.7)", minWidth: 32, textAlign: "right" }}>{volume}%</span>
+      </div>
+    </div>
+  );
+};
+
+// ─── BOTTOM NAV ────────────────────────────────────────────────────────────
+const TABS = [
+  { id: "home",     label: "Home",     Icon: IcHome },
+  { id: "upload",   label: "Upload",   Icon: IcUpload },
+  { id: "history",  label: "History",  Icon: IcHistory },
+  { id: "profile",  label: "Profile",  Icon: IcUser },
+  { id: "settings", label: "Settings", Icon: IcSettings },
+];
+const BottomNav = ({ active, onChange }) => (
+  <div style={{ position: "fixed", left: 14, right: 14, bottom: "calc(env(safe-area-inset-bottom,0px) + 12px)", zIndex: 50, height: 64, display: "flex", borderRadius: 28, background: "var(--mini)", backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)", border: "1px solid rgba(255,255,255,0.14)", boxShadow: "0 14px 36px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.08)" }}>
+    {TABS.map(({ id, label, Icon }) => {
+      const on = active === id;
+      return (
+        <button key={id} onClick={() => onChange(id)} style={{ flex: 1, background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, color: on ? "var(--accent-soft)" : "rgba(255,255,255,0.64)", transition: "color 0.15s" }}>
+          <div style={{ padding: "5px 16px", borderRadius: 99, background: on ? "rgba(var(--accent-rgb),0.18)" : "transparent", transition: "background 0.2s" }}><Icon s={22} filled={on} /></div>
+          <span style={{ fontSize: 10, fontWeight: on ? 700 : 500 }}>{label}</span>
+        </button>
+      );
+    })}
+  </div>
+);
+
+// ─── HEADER ────────────────────────────────────────────────────────────────
+const Header = ({ tab, googleUser, onLogout }) => {
+  const [showMenu, setShowMenu] = useState(false);
+  const titles = { home: "SICAC", upload: "Upload", history: "History", profile: "Profile", settings: "Settings" };
+  return (
+    <div style={{ position: "sticky", top: "env(safe-area-inset-top,0px)", zIndex: 30, background: "rgba(var(--bg-rgb),0.92)", backdropFilter: "blur(20px)", padding: "14px 18px 10px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        {tab === "home" && <Logo s={32} />}
+        <div className="disp" style={{ fontSize: tab === "home" ? 28 : 22, fontWeight: 700, color: "#fff" }}>{titles[tab]}</div>
+      </div>
+
+      {/* Google user avatar + menu */}
+      <div style={{ position: "relative" }}>
+        <button
+          onClick={() => setShowMenu(v => !v)}
+          style={{
+            width: 36, height: 36, borderRadius: "50%", border: "2px solid rgba(255,255,255,0.18)",
+            background: "rgba(255,255,255,0.08)", overflow: "hidden", cursor: "pointer",
+            display: "flex", alignItems: "center", justifyContent: "center", padding: 0,
+          }}
+        >
+          {googleUser?.avatar
+            ? <img src={googleUser.avatar} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            : <IcUser s={18} />}
+        </button>
+
+        {showMenu && (
+          <>
+            <div onClick={() => setShowMenu(false)} style={{ position: "fixed", inset: 0, zIndex: 99 }} />
+            <div style={{
+              position: "absolute", top: "calc(100% + 8px)", right: 0, zIndex: 100,
+              background: "var(--panel)", border: "1px solid rgba(255,255,255,0.12)",
+              borderRadius: 18, minWidth: 210, overflow: "hidden",
+              boxShadow: "0 16px 50px rgba(0,0,0,0.6)", padding: "6px 0",
+            }}>
+              {/* User info */}
+              <div style={{ padding: "14px 16px 12px", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div style={{ width: 40, height: 40, borderRadius: "50%", overflow: "hidden", flexShrink: 0, background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    {googleUser?.avatar
+                      ? <img src={googleUser.avatar} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                      : <IcUser s={20} />}
+                  </div>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {googleUser?.name || "Tamu"}
+                    </div>
+                    {googleUser?.email && (
+                      <div style={{ fontSize: 11, color: "rgba(255,255,255,0.45)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {googleUser.email}
+                      </div>
+                    )}
+                    {googleUser?.isGuest && (
+                      <div style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", marginTop: 1 }}>Mode Tamu</div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Menu items */}
+              <button
+                onClick={() => { setShowMenu(false); }}
+                style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "12px 16px", background: "none", border: "none", color: "rgba(255,255,255,0.75)", fontSize: 13, cursor: "pointer", textAlign: "left" }}
+              >
+                <IcBell s={16} />
+                Notifikasi
+              </button>
+              <button
+                onClick={() => { setShowMenu(false); onLogout(); }}
+                style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "12px 16px", background: "none", border: "none", color: "#FCA5A5", fontSize: 13, cursor: "pointer", textAlign: "left", borderTop: "1px solid rgba(255,255,255,0.06)" }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                  <polyline points="16 17 21 12 16 7" />
+                  <line x1="21" y1="12" x2="9" y2="12" />
+                </svg>
+                Keluar
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// ─── ROOT ──────────────────────────────────────────────────────────────────
+
+// ─── PERSISTENT APP DATA (IndexedDB; survives app restarts and stores media) ───
+const SICAC_DB_NAME = "sicac-persistent-data";
+const SICAC_DB_STORE = "app-state";
+
+function openSicacDB() {
+  return new Promise((resolve, reject) => {
+    if (!("indexedDB" in window)) return reject(new Error("IndexedDB unavailable"));
+    const request = indexedDB.open(SICAC_DB_NAME, 1);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(SICAC_DB_STORE)) {
+        db.createObjectStore(SICAC_DB_STORE);
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function readSicacState() {
+  const db = await openSicacDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(SICAC_DB_STORE, "readonly");
+    const request = tx.objectStore(SICAC_DB_STORE).get("main");
+    request.onsuccess = () => { db.close(); resolve(request.result || null); };
+    request.onerror = () => { db.close(); reject(request.error); };
+  });
+}
+
+async function writeSicacState(value) {
+  const db = await openSicacDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(SICAC_DB_STORE, "readwrite");
+    tx.objectStore(SICAC_DB_STORE).put(value, "main");
+    tx.oncomplete = () => { db.close(); resolve(); };
+    tx.onerror = () => { db.close(); reject(tx.error); };
+    tx.onabort = () => { db.close(); reject(tx.error || new Error("Save aborted")); };
+  });
+}
+
+export default function SicacApp() {
+  // ─── Google Auth State ─────────────────────────────────────────────────
+  const [googleUser, setGoogleUser] = useState(() => {
+    try {
+      const saved = localStorage.getItem("sicac-guser");
+      return saved ? JSON.parse(saved) : null;
+    } catch { return null; }
+  });
+
+  const handleGoogleLogin = (user) => {
+    setGoogleUser(user);
+    try { localStorage.setItem("sicac-guser", JSON.stringify(user)); } catch {}
+    // Pre-fill profile from Google account
+    if (!user.isGuest) {
+      setProfile(prev => ({
+        ...prev,
+        name:   user.name   || prev.name,
+        avatar: user.avatar || prev.avatar,
+        bio:    prev.bio || "Music is life",
+      }));
+    }
+  };
+
+  const handleLogout = () => {
+    setGoogleUser(null);
+    try {
+      localStorage.removeItem("sicac-guser");
+      window.google?.accounts?.id?.disableAutoSelect?.();
+    } catch {}
+  };
+
+  const [tab, setTab]                   = useState("home");
+  const [themeId, setThemeIdRaw]        = useState(() => { try { return localStorage.getItem("sicac-theme") || "midnight"; } catch { return "midnight"; } });
+  const setThemeId = (id) => { setThemeIdRaw(id); try { localStorage.setItem("sicac-theme", id); } catch {} };
+  const theme = THEMES.find(t => t.id === themeId) || THEMES[0];
+  const [profileBanner, setProfileBanner] = useState({ image: null });
+  const [playerBg, setPlayerBg]         = useState(null);
+  // Key tidak disimpan di localStorage/pengaturan; disuplai melalui environment saat build.
+  const ytKey = import.meta.env.VITE_YOUTUBE_API_KEY || "";
+  const [showFullPlayer, setShowFull]   = useState(false);
+  const [showBannerEdit, setShowBanner] = useState(false);
+  const [songs, setSongs]               = useState([]);
+  const [history, setHistory]           = useState([]);
+  const [profile, setProfile]           = useState({ name: "My Name", bio: "Music is life", avatar: null, xp: 0 });
+  const [banner, setBanner]             = useState({
+    type: "gradient",
+    from: "#1a1a3e", mid: "#2d1b69", to: "#1e3a8a",
+    accent: "var(--accent-soft)",
+    title: "Your Daily", subtitle: "Mix",
+    image: null,
+  });
+
+  const [persistenceReady, setPersistenceReady] = useState(false);
+
+  // Load saved profile, banner, uploads, likes, history and theme before saving changes.
+  useEffect(() => {
+    let active = true;
+    readSicacState()
+      .then(saved => {
+        if (!active) return;
+        if (saved) {
+          if (Array.isArray(saved.songs)) setSongs(saved.songs);
+          if (Array.isArray(saved.history)) setHistory(saved.history);
+          if (saved.profile && typeof saved.profile === "object") {
+            setProfile(prev => ({ ...prev, ...saved.profile }));
+          }
+          if (saved.banner && typeof saved.banner === "object") {
+            setBanner(prev => ({ ...prev, ...saved.banner }));
+          }
+          if (saved.profileBanner && typeof saved.profileBanner === "object") {
+            setProfileBanner(saved.profileBanner);
+          }
+          if (saved.playerBg !== undefined) setPlayerBg(saved.playerBg);
+          if (typeof saved.themeId === "string") {
+            setThemeIdRaw(saved.themeId);
+            try { localStorage.setItem("sicac-theme", saved.themeId); } catch {}
+          }
+        }
+      })
+      .catch(error => console.warn("SICAC: gagal memuat data tersimpan", error))
+      .finally(() => { if (active) setPersistenceReady(true); });
+    return () => { active = false; };
+  }, []);
+
+  // IndexedDB avoids localStorage's small quota and persists uploaded audio/images.
+  useEffect(() => {
+    if (!persistenceReady) return;
+    const payload = { version: 1, songs, history, profile, banner, profileBanner, playerBg, themeId };
+    writeSicacState(payload).catch(error => {
+      console.error("SICAC: gagal menyimpan data", error);
+    });
+  }, [persistenceReady, songs, history, profile, banner, profileBanner, playerBg, themeId]);
+
+  const player = usePlayer(songs);
+
+  // Track history
+  const prevSongId = useRef(null);
+  useEffect(() => {
+    const s = player.currentSong;
+    if (!s || s.id === prevSongId.current) return;
+    prevSongId.current = s.id;
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    setHistory(h => [{ ...s, playedAt: timeStr }, ...h].slice(0, 50));
+  }, [player.currentSong]);
+
+  // Show login screen if not authenticated
+  if (!googleUser) {
+    return <GoogleLoginScreen onLogin={handleGoogleLogin} />;
+  }
+
+  return (
+    <div style={{ ...themeVars(theme), background: "var(--bg)", minHeight: "100dvh", fontFamily: "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", \"SF Pro Display\", \"Helvetica Neue\", system-ui, sans-serif", color: "#fff", overflowX: "hidden" }}>
+      <style>{GLOBAL_CSS}</style>
+      <Header tab={tab} googleUser={googleUser} onLogout={handleLogout} />
+
+      <div style={{ padding: "14px 14px 0" }}>
+        <div style={{ display: tab === "home" ? "block" : "none" }}>
+          <HomeScreen player={player} songs={songs} setSongs={setSongs} profile={profile} banner={banner} setBanner={setBanner} onEditBanner={() => setShowBanner(true)} ytKey={ytKey} />
+        </div>
+        {tab === "upload"   && <UploadScreen  songs={songs} setSongs={setSongs} />}
+        {tab === "history"  && <HistoryScreen history={history} />}
+        {tab === "profile"  && <ProfileScreen profile={profile} setProfile={setProfile} songs={songs} profileBanner={profileBanner} setProfileBanner={setProfileBanner} />}
+        {tab === "settings" && <SettingsScreen banner={banner} setBanner={setBanner} themeId={themeId} setThemeId={setThemeId} />}
+      </div>
+
+      {player.currentSong && <MiniPlayer player={player} onExpand={() => setShowFull(true)} />}
+      <BottomNav active={tab} onChange={setTab} />
+
+      {showFullPlayer  && <FullPlayer player={player} songs={songs} setSongs={setSongs} onClose={() => setShowFull(false)} playerBg={playerBg} setPlayerBg={setPlayerBg} />}
+      {showBannerEdit  && <BannerEditor banner={banner} onSave={setBanner} onClose={() => setShowBanner(false)} />}
+    </div>
+  );
+}
