@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   build-apk:
-    name: Build Android APK
+    name: Build SICAC Android APK
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -28,21 +28,25 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: package-lock.json
 
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-          cache: gradle
 
       - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
+
+      - name: Accept Android SDK licenses
+        run: yes | sdkmanager --licenses
 
       - name: Install Android SDK packages
         run: |
-          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+          sdkmanager \
+            "platform-tools" \
+            "platforms;android-35" \
+            "build-tools;35.0.0"
 
       - name: Install npm dependencies
         run: |
@@ -52,59 +56,14 @@ jobs:
             npm install
           fi
 
-      - name: Diagnose YouTube API key
-        env:
-          VITE_YOUTUBE_API_KEY: ${{ secrets.VITE_YOUTUBE_API_KEY }}
+      - name: Check Capacitor configuration
         run: |
-          if [ -z "$VITE_YOUTUBE_API_KEY" ]; then
-            echo "::error::GitHub Secret VITE_YOUTUBE_API_KEY kosong atau belum tersedia."
-            exit 1
-          fi
-
-          echo "GitHub Secret tersedia."
-          echo "Panjang key: ${#VITE_YOUTUBE_API_KEY} karakter."
-
-          node <<'NODE'
-          async function main() {
-            const key = process.env.VITE_YOUTUBE_API_KEY;
-            const url = new URL(
-              'https://www.googleapis.com/youtube/v3/search'
-            );
-
-            url.searchParams.set('part', 'snippet');
-            url.searchParams.set('type', 'video');
-            url.searchParams.set('maxResults', '1');
-            url.searchParams.set('q', 'test');
-            url.searchParams.set('key', key);
-
-            try {
-              const response = await fetch(url);
-              const data = await response.json();
-
-              if (response.ok && data.items) {
-                console.log('YouTube API test: BERHASIL');
-                return;
-              }
-
-              console.log('YouTube API test: GAGAL');
-              console.log('HTTP status:', response.status);
-              console.log(
-                'Alasan:',
-                data.error?.errors?.[0]?.reason || 'tidak diketahui'
-              );
-              console.log(
-                'Pesan:',
-                data.error?.message || 'tidak ada pesan'
-              );
-              process.exitCode = 1;
-            } catch (error) {
-              console.log('Tes jaringan gagal:', error.message);
-              process.exitCode = 1;
-            }
-          }
-
-          main();
-          NODE
+          node -e "
+            const p = require('./package.json');
+            console.log('Project:', p.name);
+            console.log('Capacitor CLI:', p.dependencies?.['@capacitor/cli'] || p.devDependencies?.['@capacitor/cli'] || 'not declared');
+            console.log('Capacitor Android:', p.dependencies?.['@capacitor/android'] || p.devDependencies?.['@capacitor/android'] || 'not declared');
+          "
 
       - name: Build web app
         env:
@@ -117,15 +76,44 @@ jobs:
             echo "::error::Folder dist tidak ditemukan."
             exit 1
           }
-          echo "Isi folder dist:"
+
+          test -f dist/index.html || {
+            echo "::error::dist/index.html tidak ditemukan."
+            exit 1
+          }
+
+          echo "Web build berhasil."
           find dist -maxdepth 2 -type f | head -100
 
       - name: Prepare Capacitor Android project
         run: |
+          if [ ! -f capacitor.config.ts ] && \
+             [ ! -f capacitor.config.json ] && \
+             [ ! -f capacitor.config.js ] && \
+             [ ! -f capacitor.config.mjs ] && \
+             [ ! -f capacitor.config.cjs ]; then
+            echo "::error::Konfigurasi Capacitor tidak ditemukan."
+            exit 1
+          fi
+
           if [ ! -d android ]; then
             npx cap add android
           fi
+
           npx cap sync android
+
+      - name: Verify Android project
+        run: |
+          test -f android/gradlew || {
+            echo "::error::android/gradlew tidak ditemukan."
+            exit 1
+          }
+
+          test -f android/app/build.gradle || \
+          test -f android/app/build.gradle.kts || {
+            echo "::error::Konfigurasi Gradle aplikasi Android tidak ditemukan."
+            exit 1
+          }
 
       - name: Build debug APK
         working-directory: android
