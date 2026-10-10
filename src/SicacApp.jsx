@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { MediaSession } from "@jofr/capacitor-media-session";
 
 // ─── GOOGLE CLIENT ID ───────────────────────────────────────────────────────
 // Ganti dengan Client ID dari Google Cloud Console Anda
@@ -6,26 +7,12 @@ const G_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "YOUR_GOOGLE_CLIENT
 
 // ─── GOOGLE LOGIN SCREEN ────────────────────────────────────────────────────
 const LOGO_ANIM_CSS = `
-@keyframes logoFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
-@keyframes fadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
-@keyframes shimmer{0%{background-position:-200% center}100%{background-position:200% center}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
 @keyframes spin{to{transform:rotate(360deg)}}
-@keyframes ringSpin{to{transform:rotate(360deg)}}
-@keyframes orbA{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(36px,46px) scale(1.18)}}
-@keyframes orbB{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(-44px,-30px) scale(1.12)}}
-@keyframes orbC{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(-26px,40px) scale(1.25)}}
-@keyframes eqLogin{0%,100%{transform:scaleY(.22)}50%{transform:scaleY(1)}}
-.login-logo{animation:logoFloat 3.6s ease-in-out infinite}
-.login-ring{animation:ringSpin 7s linear infinite}
-.login-card{animation:fadeUp .65s cubic-bezier(.22,1,.36,1) both}
-.login-card2{animation:fadeUp .65s .12s cubic-bezier(.22,1,.36,1) both}
-.login-orb{filter:blur(70px);will-change:transform}
-.login-eq{transform-origin:bottom;animation:eqLogin 1.6s ease-in-out infinite}
-.shimmer-text{background:linear-gradient(90deg,rgba(255,255,255,.55) 0%,#fff 40%,rgba(255,255,255,.55) 100%);background-size:200% auto;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;animation:shimmer 3.4s linear infinite}
-.login-guest{transition:background .15s,border-color .15s,transform .1s}
-.login-guest:hover{background:rgba(255,255,255,.08)!important;border-color:rgba(255,255,255,.28)!important}
-.login-guest:active{transform:scale(.98)}
-@media (prefers-reduced-motion:reduce){.login-logo,.login-ring,.login-orb,.login-eq,.shimmer-text,.login-card,.login-card2{animation:none!important}}
+.login-card{animation:fadeUp .4s cubic-bezier(.22,1,.36,1) both}
+.login-guest{transition:color .15s}
+.login-guest:hover{color:#fff!important}
+@media (prefers-reduced-motion:reduce){.login-card{animation:none!important}}
 `;
 
 const GoogleLoginScreen = ({ onLogin }) => {
@@ -56,7 +43,7 @@ const GoogleLoginScreen = ({ onLogin }) => {
         if (gBtnRef.current) {
           window.google.accounts.id.renderButton(gBtnRef.current, {
             type: "standard", theme: "filled_black", size: "large",
-            shape: "pill", width: 300, text: "signin_with", logo_alignment: "left",
+            shape: "pill", width: 250, text: "signin_with",
           });
         }
       } catch (e) {
@@ -85,136 +72,58 @@ const GoogleLoginScreen = ({ onLogin }) => {
     }
   };
 
-  const FONT = "-apple-system,BlinkMacSystemFont,'SF Pro Display','Helvetica Neue',system-ui,sans-serif";
-  const chips = ["Library lokal", "Streaming online", "Level & XP"];
-
   return (
     <div style={{
-      minHeight: "100dvh", display: "flex", flexDirection: "column",
-      alignItems: "center", justifyContent: "center",
-      background: "radial-gradient(120% 80% at 50% 0%, #1d1545 0%, #0E0C1E 55%, #07060e 100%)",
-      position: "relative", overflow: "hidden",
-      padding: "max(28px, env(safe-area-inset-top)) 0 max(28px, env(safe-area-inset-bottom))",
-      fontFamily: FONT,
+      position: "fixed", inset: 0, display: "flex", alignItems: "center", justifyContent: "center",
+      background: "radial-gradient(90% 60% at 50% 0%, #1d1545 0%, #0E0C1E 70%)",
+      padding: 20, fontFamily: "-apple-system,BlinkMacSystemFont,'SF Pro Display','Helvetica Neue',system-ui,sans-serif",
     }}>
       <style>{LOGO_ANIM_CSS}</style>
 
-      {/* Aurora orbs */}
-      <div aria-hidden="true" style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
-        <div className="login-orb" style={{ position: "absolute", top: "-14%", left: "-20%", width: 380, height: 380, borderRadius: "50%", background: "rgba(195,68,102,0.45)", animation: "orbA 14s ease-in-out infinite" }} />
-        <div className="login-orb" style={{ position: "absolute", bottom: "-16%", right: "-22%", width: 420, height: 420, borderRadius: "50%", background: "rgba(91,33,182,0.5)", animation: "orbB 17s ease-in-out infinite" }} />
-        <div className="login-orb" style={{ position: "absolute", top: "42%", left: "58%", width: 220, height: 220, borderRadius: "50%", background: "rgba(14,118,188,0.35)", animation: "orbC 12s ease-in-out infinite" }} />
-      </div>
-
-      {/* Fine grid */}
-      <div aria-hidden="true" style={{
-        position: "absolute", inset: 0, pointerEvents: "none", opacity: 0.035,
-        backgroundImage: "linear-gradient(rgba(255,255,255,.9) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.9) 1px,transparent 1px)",
-        backgroundSize: "44px 44px",
-        WebkitMaskImage: "radial-gradient(circle at 50% 40%, #000 20%, transparent 75%)",
-        maskImage: "radial-gradient(circle at 50% 40%, #000 20%, transparent 75%)",
-      }} />
-
-      {/* Equalizer skyline */}
-      <div aria-hidden="true" style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 130, display: "flex", alignItems: "flex-end", justifyContent: "center", gap: 6, opacity: 0.16, pointerEvents: "none", padding: "0 10px", overflow: "hidden" }}>
-        {Array.from({ length: 34 }).map((_, k) => (
-          <div key={k} className="login-eq" style={{
-            flex: "1 1 0", maxWidth: 10, height: 40 + ((k * 37) % 80), borderRadius: 6,
-            background: "linear-gradient(to top, #C34466, #7C3AED)",
-            animationDuration: `${1.1 + ((k * 7) % 9) / 10}s`, animationDelay: `${-((k * 13) % 17) / 10}s`,
-          }} />
-        ))}
-      </div>
-
-      <div style={{ width: "100%", maxWidth: 380, padding: "0 22px", position: "relative", zIndex: 2 }}>
-
-        {/* Hero */}
-        <div className="login-card" style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 30 }}>
-          <div style={{ position: "relative", width: 96, height: 96, marginBottom: 22 }}>
-            <div className="login-ring" aria-hidden="true" style={{
-              position: "absolute", inset: -8, borderRadius: 36,
-              background: "conic-gradient(from 0deg,#C34466,#7C3AED,#0EA5E9,#C34466)",
-              filter: "blur(14px)", opacity: 0.6,
-            }} />
-            <div className="login-logo" style={{
-              position: "relative", width: 96, height: 96, borderRadius: 30,
-              background: "linear-gradient(145deg,#D2496F 0%,#7C3AED 100%)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              boxShadow: "inset 0 1px 0 rgba(255,255,255,.35), 0 18px 44px rgba(124,58,237,.4)",
-            }}>
-              <svg width="54" height="54" viewBox="0 0 24 24" fill="#fff" aria-hidden="true">
-                <rect x="3" y="9" width="3.4" height="7" rx="1.7" />
-                <rect x="8.2" y="4" width="3.4" height="16" rx="1.7" />
-                <rect x="13.4" y="7" width="3.4" height="10" rx="1.7" />
-                <rect x="18.6" y="10" width="3.4" height="4" rx="1.7" />
-              </svg>
-            </div>
-          </div>
-          <h1 className="shimmer-text" style={{ margin: 0, fontSize: 38, fontWeight: 800, letterSpacing: -1.4, lineHeight: 1 }}>SICAC</h1>
-          <div style={{ fontSize: 14, color: "rgba(255,255,255,0.55)", marginTop: 10, letterSpacing: 0.2 }}>Musik kamu. Di mana saja.</div>
-          <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 6, marginTop: 16 }}>
-            {chips.map(c => (
-              <span key={c} style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.72)", padding: "5px 11px", borderRadius: 99, background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.1)" }}>{c}</span>
-            ))}
-          </div>
-        </div>
-
-        {/* Card with gradient border */}
-        <div className="login-card2" style={{
-          padding: 1, borderRadius: 28,
-          background: "linear-gradient(160deg,rgba(255,255,255,.26),rgba(255,255,255,.05) 38%,rgba(195,68,102,.38))",
-          boxShadow: "0 30px 80px rgba(0,0,0,.55)",
+      <div className="login-card" style={{
+        width: "100%", maxWidth: 300, boxSizing: "border-box", padding: "26px 22px 20px", textAlign: "center",
+        background: "rgba(24,19,52,0.92)", borderRadius: 24,
+        border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 24px 60px rgba(0,0,0,0.55)",
+      }}>
+        <div style={{
+          width: 54, height: 54, borderRadius: 17, margin: "0 auto 14px",
+          background: "linear-gradient(145deg,#D2496F,#7C3AED)",
+          display: "flex", alignItems: "center", justifyContent: "center",
         }}>
-          <div style={{
-            background: "rgba(16,12,36,0.84)", backdropFilter: "blur(26px)", WebkitBackdropFilter: "blur(26px)",
-            borderRadius: 27, padding: "26px 22px 22px",
-          }}>
-            <div style={{ textAlign: "center", marginBottom: 22 }}>
-              <div style={{ fontSize: 21, fontWeight: 700, color: "#fff", marginBottom: 6, letterSpacing: -0.4 }}>Selamat datang</div>
-              <div style={{ fontSize: 13, color: "rgba(255,255,255,0.5)", lineHeight: 1.55 }}>
-                Masuk dengan akun Google untuk menyimpan profil, level, dan riwayat putar kamu.
-              </div>
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="#fff" aria-hidden="true">
+            <rect x="3" y="9" width="3.4" height="7" rx="1.7" />
+            <rect x="8.2" y="4" width="3.4" height="16" rx="1.7" />
+            <rect x="13.4" y="7" width="3.4" height="10" rx="1.7" />
+            <rect x="18.6" y="10" width="3.4" height="4" rx="1.7" />
+          </svg>
+        </div>
+        <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: "#fff", letterSpacing: -0.5 }}>SICAC</h1>
+        <div style={{ fontSize: 12.5, color: "rgba(255,255,255,0.5)", margin: "4px 0 20px" }}>Masuk untuk mulai mendengarkan</div>
+
+        <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: 44 }}>
+          {loading ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 10, color: "rgba(255,255,255,0.6)", fontSize: 13 }}>
+              <div style={{ width: 16, height: 16, borderRadius: "50%", border: "2px solid rgba(255,255,255,0.15)", borderTopColor: "#C34466", animation: "spin .8s linear infinite" }} />
+              Memproses...
             </div>
+          ) : (
+            <div ref={gBtnRef} />
+          )}
+        </div>
 
-            {/* Google button */}
-            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: 48, marginBottom: 14 }}>
-              {loading ? (
-                <div style={{ display: "flex", alignItems: "center", gap: 10, color: "rgba(255,255,255,0.6)", fontSize: 13 }}>
-                  <div style={{ width: 18, height: 18, borderRadius: "50%", border: "2px solid rgba(255,255,255,0.15)", borderTopColor: "#C34466", animation: "spin .8s linear infinite" }} />
-                  Memproses akun...
-                </div>
-              ) : (
-                <div ref={gBtnRef} style={{ borderRadius: 99, boxShadow: "0 8px 26px rgba(195,68,102,.22)" }} />
-              )}
-            </div>
-
-            {error && (
-              <div role="alert" style={{ background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.22)", borderRadius: 12, padding: "10px 14px", fontSize: 12, color: "#FCA5A5", textAlign: "center", marginBottom: 12 }}>
-                {error}
-              </div>
-            )}
-
-            {/* Divider */}
-            <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "16px 0" }}>
-              <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.09)" }} />
-              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", letterSpacing: 1.2 }}>ATAU</div>
-              <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.09)" }} />
-            </div>
-
-            <button
-              className="login-guest"
-              onClick={() => onLogin({ name: "Tamu", email: "", avatar: null, sub: "guest", isGuest: true })}
-              style={{ width: "100%", height: 46, borderRadius: 99, cursor: "pointer", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.16)", color: "rgba(255,255,255,0.85)", fontSize: 14, fontWeight: 600 }}
-            >
-              Lanjut sebagai Tamu
-            </button>
+        {error && (
+          <div role="alert" style={{ marginTop: 12, background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.22)", borderRadius: 10, padding: "8px 12px", fontSize: 12, color: "#FCA5A5" }}>
+            {error}
           </div>
-        </div>
+        )}
 
-        <div style={{ textAlign: "center", marginTop: 22, fontSize: 11, color: "rgba(255,255,255,0.28)", lineHeight: 1.7 }}>
-          Dengan masuk, kamu menyetujui syarat penggunaan.<br />
-          <span style={{ color: "rgba(255,255,255,0.4)" }}>devnsepele © 2025</span>
-        </div>
+        <button
+          className="login-guest"
+          onClick={() => onLogin({ name: "Tamu", email: "", avatar: null, sub: "guest", isGuest: true })}
+          style={{ marginTop: 14, background: "none", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.55)", fontSize: 13, padding: 6 }}
+        >
+          Lanjut sebagai Tamu
+        </button>
       </div>
     </div>
   );
@@ -222,7 +131,7 @@ const GoogleLoginScreen = ({ onLogin }) => {
 
 // ─── CONSTANTS ─────────────────────────────────────────────────────────────
 // Ikon: pixel-art dari Level_Rank.zip (stone → admin), disematkan sebagai data URI
-const LEVELS = [
+const LEVELS_BASE = [
   { name: "Hum", min: 0, max: 200, color: "#9CA3AF", icon: "data:image/webp;base64,UklGRpoCAABXRUJQVlA4TI0CAAAvF8AFEK8FOZIkQU3WEHzlv536HtBuQG4jyZHEWHH3O/9Nld0JuY0kRxJjZnaf57+fWk7CDQSAgHNv20b7Y3BpRFUWcNLZtgIBBP6+XvL3OLLVffWPNgLVH0/LThHELfqr/57PCyUIIu5xUMKChBDEcEj2oFDCIQQxDMNJOOOw4cEBcfooiGAaShBDQkRYJKFSqSRiOBFMHUQgRo9UKohWX5UKcU/XoYYTqeFQOYdnnz5/fzb+f15t486CGX5jxrndgcF7Cfyub2SYjeFrZl6XbX6X2jF+6YX7k+OsQLz8orQVXDI799br6e4eR54jUMLl+nv+t7c94GNbAAHEkcTJthAKnMF9XovP9/fhbsXv+Tuz3u0u/M7dR2SDfW+N7qHBAhhv4jQMCGrF3/WCl7bwsrY5o5/37mMfj7kBgmTbph0n32Zs27aNz9i2bdu27fwJOhjAORH9nwDFf7s5NYk4taPd3qovIvqsbOhpM+GTLRJDdvCoVLO92e7EgspiUVxQ19y6RvtDcWmi0qKcpMTojqUDTbaHReifnZspEaVFdowH6KvbGvZscQ/JKqwqkYkSO8d21awt9zY0OrvE55dXy8WJwTELn6qme8IzUkPcXSJkcllmbJxk5EXVZHtmRVleVEJmNkKQG4TTXlVN9STW1uQlJyUiYlKzh8vA0T1dRV9QUkpaemJQeFBoWpODe+vghamaMER3l/DMOo8gG8sgG+YVQWmm39bJO8gdvOpbPNysLFytWJcmSovznMM2P3cAe0cPsDa35x0/GyrBzQWXD45egQI7D7DmA+lJodro9owhtLZCMzaFSibB95cagLtTDguYnJO3h0eAa4WmH+dXiPCu0N6YSEAEAx3oEAA=" },
   { name: "Groove", min: 200, max: 500, color: "#E08A52", icon: "data:image/webp;base64,UklGRgwDAABXRUJQVlA4TP8CAAAvF8AFEFcGOZIkRZJH7zHj/5Q/0U4GnJlSA3Zt266Stfa9gDk2aKmWYQ9+k+FuOJIkKZIicpn3QKVP3zdPYqp0WlvPmFz3x6UzdIpKRmMLxkEWyQY9ddi4RBEfP8/xus0CadsbVINMEVMqeblSAzHQkc/5G+/EmnEakSAClAliADSrohXWtJcN51kWPP8PaAFYQqzEysJc5tg7O5ogUwTEChUtFtxqiRMBKQYoFCiFYE0RERKrgAp2/1BrloAKjEAhsgJQ0YhUUxxjrSEChciiiAARgghWiKiCLFANsJYLc1NLSsOYVvl31rWVhRmjTXVf01hPP0LEmrFc6LKiOK6rPncZqdOjzp4CCo1D/sXAGIogQkQVxVoGdJw3dt+wZtW0FPv69/79gBXBOueoKCNB1CgQVBW56rj+uO7e3eO9p3Xn8/dl/vp9fp8/H0ofR2xMHHtYpZ1WVmijFG5jWt2+t+00s83lz8nv2fPief7Nf/pzgWps7ovTKo/1EefP1/76f93u/2YMEAMALCPZtm3zbPvetm3btm3btrWVtUAS0X+1bdswtjP18sXrf/MOgB+aja3N97oxh9Bie2vb6PqbsYGli4O9Y2BYyInx+ZdjQ5gxFMlDewhihzcMnr8Y2zcd5Bd7M5Ds7NKOvJ03552Vq5PzbmRpd2tJMAJJjCrt7i1LPDY+t62cjC8aaOloS/FCoDnRgx09C4szzRv6doVjdY3dcKQkxs8zp7xudBzW1lTlPinZpffMjvZ2l8Ylg9SuiaV5OJXAxuDVxO3S21IbFnraO2fn4dJ4V2pyEvFQF/uOFp+C+tWVt7GrQUVJjB/36FSbdfaGfhInbX1tKoGPRggiQtk4HT0t/wOJdyBpy31JRBQiOCyUcKiD05CUkhU12cwU0qlzNXwkXRDux9ZUUVa9koeKr9D0PohLma5CI9gBgPkgIwGAwoefPN7eu5GachHBe9JQSkZMFICX1w+8MLN2zyKr7xvKQygn8vXHTW3h5fvY3/PxDjy/j/2vhAA=" },
   { name: "Rhythm", min: 500, max: 1000, color: "#CBD5E1", icon: "data:image/webp;base64,UklGRvABAABXRUJQVlA4TOQBAAAvF8AFEM1lRP8DcmxrO7bnevDZv212f2X7/4egOCPIhFClz0pps7LtfNbr57ljDyACbi0ABJx/F1WpbNuZIGVeypQZ4BbIALa9gI3u+tS2NYKNCUAA/s+747xJEaVO0fxL2+n+PA8EM6PTPvYVD/n38fgLu5t8Qy4SNUsquc+txdZPbE6JKo/Sk9af3U7i4piyh94e59bRAgD7Y516FgSluTuRE6I06dRCIBpj+eCpD7v5vmAYzxsxjSVyjwEyql8njWgEAIARnnnpEdRYZ6nDjuhDWe8DZVyQnwQAQAiQsDZa0fP/kw+5L1HY6KAkpgCAAACJCGIIJz1hYI7JIjFj5jR6gxAQALQGcQ5ieO0Ex7DD0iBuhtRsyktVXJcggJKXTiuxKVJKi6PSIG4WCevQJIAj77zmMBQ9Z/Np4RcWckQaxIzzYTzLkgxv3HaLCbgwEtHLoKj/4w/pLymgVZsobVjWRVWKRkjYCM7w1mVpDKv5dKYa/emBgVa1UoZknGMgTBjneAs8plxn8YT9hcJ4xqKXJJbqyuviWg0ouK7A5okSjI+re/qPESiEM/iuXk82NOrieuO5D9I4Rt/cLME3/KQuDdYFh4PKXnPYG9UxCfB2Yxv/PwOqQPRAwRuS2sQs/JcB" },
@@ -236,6 +145,8 @@ const LEVELS = [
   { name: "Eternal Echo", min: 25000, max: 50000, color: "#A78BFA", icon: "data:image/webp;base64,UklGRsQAAABXRUJQVlA4TLgAAAAvF8AFEEegNpIN6iH7i4Sq0H9jGlHaSAp0d7hXImmC/ksjURNJCvM19Dm0GMC/KgTMf4Bwd2fE7lAn/66bRT2xBUe1bavNfVHAMHzBOQpgASkICAkoj7m+KaAgov8TgKXatmTZ9ji2O9+2m8oWwFn3NsHX9+AK3JxeH5ezTiN250EHN8PZIM66rQau+0Ed01Trj7LQicN887Ep5BHgsFQhpuuIMEIMEgVisPqAqBAgBhLGEQCIX5YI" },
   { name: "Overlord", min: 50000, max: Infinity, color: "#E879F9", icon: "data:image/webp;base64,UklGRjgBAABXRUJQVlA4TCsBAAAvF8AFEPegqJEkZZlep/dUoiIQoaiRJGWZXmtj/Zs7TNS2bcMGbadnypb5V5u2ATOm5w5AMM3MBpEQiUguer7vgVliNu6FSJiNexFxVcsstT7nl7GgzzNArG3bSYSPzwv4gzlr/306EtY0cG9E/yeg+8f3xzKF5+dngXvb84bTrHy5nU/I1+OeeUphPV9ux0PDfrdnnmCMQh5ywz4LdYrTdM9GZuHASUG1QgpTL5igAaPThEx8TzG3cEB7YZ/2NU+huYa/3q89uWso/EOdFg7TXNueZY9iUr4CbnB15X5nJTdgXzvANOCAOmDZNtJKFXYA1MJJmgPKuick4QuAaQAc6QFhIvkDRg1wMKqkXobtL0DJ2A4wIYFxyrcGxwFZepnnmoWJ3Ww1ColVAQA=" },
 ];
+// Ambang pangkat diskalakan agar tersebar sepanjang perjalanan 1 tahun (Overlord = Lv 5.001)
+const LEVELS = LEVELS_BASE.map(l => ({ ...l, min: l.min * 5, max: l.max * 5 }));
 
 const BANNER_PRESETS = [
   { id: "purple", label: "Purple Night",  from: "#1a1a3e", mid: "#2d1b69", to: "#1e3a8a", accent: "var(--accent-soft)" },
@@ -641,12 +552,18 @@ const fmt = (s) => {
   if (!s || isNaN(s)) return "0:00";
   return `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
 };
+const XP_PER_LEVEL = 50;      // 500.000 XP = Lv 10.000 ≈ 1 tahun jika mendengarkan ±2 jam/hari (1 XP / 5 detik)
+const MAX_LEVEL = 10000;      // level maksimum
 const getLevelInfo = (xp) => {
   const lvl = LEVELS.find((l) => xp >= l.min && xp < l.max) || LEVELS[LEVELS.length - 1];
   const idx = LEVELS.indexOf(lvl);
   const next = LEVELS[idx + 1];
   const pct = next ? Math.round(((xp - lvl.min) / (next.min - lvl.min)) * 100) : 100;
-  return { ...lvl, idx, xp, pct, next };
+  const level = Math.min(MAX_LEVEL, Math.floor(xp / XP_PER_LEVEL) + 1);
+  const isMax = level >= MAX_LEVEL;
+  const levelPct = isMax ? 100 : Math.round(((xp % XP_PER_LEVEL) / XP_PER_LEVEL) * 100);
+  const toNext = isMax ? 0 : XP_PER_LEVEL - (xp % XP_PER_LEVEL);
+  return { ...lvl, idx, xp, pct, next, level, isMax, levelPct, toNext };
 };
 // Artwork notifikasi untuk lagu lokal (tanpa cover): gradien + inisial
 const makeArtwork = (song) => {
@@ -749,19 +666,6 @@ const XPBar = ({ pct, color, height = 4 }) => (
 );
 
 // ─── TOGGLE ────────────────────────────────────────────────────────────────
-const Toggle = ({ value, onChange }) => (
-  <div onClick={() => onChange(!value)} style={{
-    width: 44, height: 24, borderRadius: 99,
-    background: value ? "var(--accent)" : "rgba(255,255,255,0.12)",
-    position: "relative", cursor: "pointer", transition: "background 0.2s", flexShrink: 0,
-  }}>
-    <div style={{
-      position: "absolute", top: 2, left: value ? 22 : 2,
-      width: 20, height: 20, borderRadius: "50%", background: "#fff",
-      transition: "left 0.2s",
-    }} />
-  </div>
-);
 
 // ─── ICON BTN ──────────────────────────────────────────────────────────────
 const IconBtn = ({ icon: Icon, onClick, active, size = 20, style: sx = {} }) => (
@@ -1155,16 +1059,14 @@ const HomeScreen = ({ player, online, songs, setSongs, profile, banner, setBanne
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 7 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <LevelBadge level={levelInfo} size={30} />
-            <span style={{ fontSize: 14, fontWeight: 700, color: "#fff" }}>Lv {levelInfo.idx} · {levelInfo.name}</span>
+            <span style={{ fontSize: 14, fontWeight: 700, color: "#fff" }}>Lv {levelInfo.level.toLocaleString()} · {levelInfo.name}</span>
           </div>
           <span style={{ fontSize: 11, color: "rgba(255,255,255,0.64)" }}>{levelInfo.xp} XP</span>
         </div>
-        <XPBar pct={levelInfo.pct} color={levelInfo.color} height={5} />
-        {levelInfo.next && (
-          <div style={{ fontSize: 10, color: "rgba(255,255,255,0.64)", marginTop: 5, textAlign: "right" }}>
-            {levelInfo.next.min - levelInfo.xp} XP to {levelInfo.next.name}
-          </div>
-        )}
+        <XPBar pct={levelInfo.levelPct} color={levelInfo.color} height={5} />
+        <div style={{ fontSize: 10, color: "rgba(255,255,255,0.64)", marginTop: 5, textAlign: "right" }}>
+          {levelInfo.isMax ? "Level maksimum" : `${levelInfo.toNext} XP ke Lv ${(levelInfo.level + 1).toLocaleString()}`}
+        </div>
       </div>
 
       <div role="tablist" style={{ display: "flex", gap: 4, padding: 4, borderRadius: 16, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.05)", marginBottom: 18 }}>
@@ -1280,7 +1182,7 @@ const UploadScreen = ({ songs, setSongs }) => {
   const deleteSong = (id) => setSongs(prev => prev.filter(s => s.id !== id));
 
   return (
-    <div style={{ paddingBottom: 176 }}>
+    <div>
       {/* Drop zone */}
       <div
         onDragOver={e => { e.preventDefault(); setDragging(true); }}
@@ -1343,7 +1245,7 @@ const UploadScreen = ({ songs, setSongs }) => {
 // ─── HISTORY SCREEN ────────────────────────────────────────────────────────
 const HistoryScreen = ({ history }) => {
   if (!history.length) return (
-    <div style={{ textAlign: "center", padding: "60px 20px", paddingBottom: 176 }}>
+    <div style={{ textAlign: "center", padding: "60px 20px" }}>
       <div style={{ color: "rgba(255,255,255,0.64)", marginBottom: 12 }}><IcHistory s={40} /></div>
       <div style={{ fontSize: 15, fontWeight: 600, color: "rgba(255,255,255,0.64)" }}>No history yet</div>
       <div style={{ fontSize: 12, color: "rgba(255,255,255,0.64)", marginTop: 4 }}>Play some music to see it here</div>
@@ -1351,7 +1253,7 @@ const HistoryScreen = ({ history }) => {
   );
 
   return (
-    <div style={{ paddingBottom: 176 }}>
+    <div>
       <div style={{ display: "flex", alignItems: "center", gap: 8, background: "rgba(255,255,255,0.06)", borderRadius: 18, padding: "12px 16px", marginBottom: 16 }}>
         <IcHistory s={15} />
         <div>
@@ -1397,11 +1299,11 @@ const ProfileScreen = ({ profile, setProfile, songs, profileBanner, setProfileBa
     { label: "Songs", value: songs.length },
     { label: "Liked", value: songs.filter(s => s.liked).length },
     { label: "XP",    value: profile.xp.toLocaleString() },
-    { label: "Level", value: `LVL ${levelInfo.idx}` },
+    { label: "Level", value: `LVL ${levelInfo.level.toLocaleString()}` },
   ];
 
   return (
-    <div style={{ paddingBottom: 176 }}>
+    <div>
       {/* Hero card */}
       <div style={{ position: "relative", background: profileBanner?.image ? `linear-gradient(180deg,rgba(var(--bg-rgb),0.2) 0%,rgba(var(--bg-rgb),0.88) 100%), url(${profileBanner.image}) center/cover no-repeat` : "linear-gradient(160deg,var(--hero1) 0%,var(--hero2) 60%,var(--panel) 100%)", borderRadius: 20, padding: profileBanner?.image ? "64px 18px 18px" : "22px 18px 18px", marginBottom: 14 }}>
         <label aria-label="Ubah banner profil" style={{ position: "absolute", top: 12, right: 12, width: 34, height: 34, borderRadius: "50%", background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: "#fff" }}>
@@ -1474,17 +1376,15 @@ const ProfileScreen = ({ profile, setProfile, songs, profileBanner, setProfileBa
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 7 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
               <LevelBadge level={levelInfo} size={32} />
-              <span style={{ fontSize: 14, fontWeight: 700, color: "#fff" }}>Lv {levelInfo.idx} · {levelInfo.name}</span>
+              <span style={{ fontSize: 14, fontWeight: 700, color: "#fff" }}>Lv {levelInfo.level.toLocaleString()} · {levelInfo.name}</span>
             </div>
             <span style={{ fontSize: 11, color: "rgba(255,255,255,0.64)" }}>{levelInfo.xp.toLocaleString()} XP</span>
           </div>
-          <XPBar pct={levelInfo.pct} color={levelInfo.color} height={7} />
-          {levelInfo.next && (
-            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 5 }}>
-              <span style={{ fontSize: 10, color: "rgba(255,255,255,0.64)" }}>{levelInfo.name}</span>
-              <span style={{ fontSize: 10, color: "rgba(255,255,255,0.64)" }}>{levelInfo.next.name}</span>
-            </div>
-          )}
+          <XPBar pct={levelInfo.levelPct} color={levelInfo.color} height={7} />
+          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 5 }}>
+            <span style={{ fontSize: 10, color: "rgba(255,255,255,0.64)" }}>Lv {levelInfo.level.toLocaleString()}</span>
+            <span style={{ fontSize: 10, color: "rgba(255,255,255,0.64)" }}>{levelInfo.isMax ? "MAX" : `Lv ${(levelInfo.level + 1).toLocaleString()}`}</span>
+          </div>
         </div>
       </div>
 
@@ -1508,7 +1408,7 @@ const ProfileScreen = ({ profile, setProfile, songs, profileBanner, setProfileBa
               <LevelBadge level={l} size={34} dim={!reached} />
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: reached ? "#fff" : "rgba(255,255,255,0.38)" }}>{l.name}</div>
-                <div style={{ fontSize: 11, color: "rgba(255,255,255,0.64)" }}>Lv {i} · {l.min.toLocaleString()} XP</div>
+                <div style={{ fontSize: 11, color: "rgba(255,255,255,0.64)" }}>Lv {(Math.floor(l.min / XP_PER_LEVEL) + 1).toLocaleString()} · {l.min.toLocaleString()} XP</div>
               </div>
               {reached && <span style={{ display: "flex", color: l.color }}><IcCheck s={16} /></span>}
             </div>
@@ -1523,25 +1423,9 @@ const ProfileScreen = ({ profile, setProfile, songs, profileBanner, setProfileBa
 const SettingsScreen = ({ banner, setBanner, themeId, setThemeId }) => {
   const [themeOpen, setThemeOpen] = useState(false);
   const curTheme = THEMES.find(t => t.id === themeId) || THEMES[0];
-  const [notif, setNotif]   = useState(true);
-  const [hq, setHq]         = useState(true);
-  const [offline, setOffline] = useState(false);
-
-  const Row = ({ icon: Icon, label, desc, right }) => (
-    <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 0", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
-      <div style={{ width: 38, height: 38, borderRadius: 11, background: "rgba(255,255,255,0.08)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-        <Icon s={19} />
-      </div>
-      <div style={{ flex: 1 }}>
-        <div style={{ fontSize: 13, fontWeight: 500, color: "#fff" }}>{label}</div>
-        {desc && <div style={{ fontSize: 11, color: "rgba(255,255,255,0.64)", marginTop: 1 }}>{desc}</div>}
-      </div>
-      {right}
-    </div>
-  );
 
   return (
-    <div style={{ paddingBottom: 176 }}>
+    <div>
       <div style={{ background: "rgba(255,255,255,0.06)", borderRadius: 20, padding: "0 14px 14px", marginBottom: 14 }}>
         <div style={{ fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,0.6)", padding: "14px 0 10px" }}>Tema</div>
         <button onClick={() => setThemeOpen(true)} aria-haspopup="dialog" style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "11px 12px", borderRadius: 14, border: "1px solid rgba(255,255,255,0.16)", background: "rgba(255,255,255,0.06)", color: "#fff", cursor: "pointer", textAlign: "left" }}>
@@ -1588,24 +1472,10 @@ const SettingsScreen = ({ banner, setBanner, themeId, setThemeId }) => {
             style={{ width: "100%", boxSizing: "border-box", background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 10, padding: "10px 12px", fontSize: 14, color: "#fff", outline: "none" }} />
         </div>
       </div>
-      <div style={{ background: "rgba(255,255,255,0.06)", borderRadius: 20, padding: "0 14px", marginBottom: 14, border: "1px solid rgba(255,255,255,0.06)" }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,0.6)", padding: "14px 0 6px" }}>Playback</div>
-        <Row icon={IcVolume}   label="High quality audio"   desc="320kbps streaming"        right={<Toggle value={hq}      onChange={setHq} />} />
-        <Row icon={IcDownload} label="Offline downloads"    desc="Save to device storage"   right={<Toggle value={offline} onChange={setOffline} />} />
-      </div>
-      <div style={{ background: "rgba(255,255,255,0.06)", borderRadius: 20, padding: "0 14px", marginBottom: 14, border: "1px solid rgba(255,255,255,0.06)" }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,0.6)", padding: "14px 0 6px" }}>Notifications</div>
-        <Row icon={IcBell} label="Push notifications" desc="New music & updates" right={<Toggle value={notif} onChange={setNotif} />} />
-      </div>
-      <div style={{ background: "rgba(255,255,255,0.06)", borderRadius: 20, padding: "0 14px", border: "1px solid rgba(255,255,255,0.06)" }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,0.6)", padding: "14px 0 6px" }}>Account</div>
-        <Row icon={IcLock} label="Privacy & security" desc="Manage your data" right={<span style={{ display: "flex", color: "rgba(255,255,255,0.5)" }}><IcChevron s={16} /></span>} />
-        <Row icon={IcUser} label="Connected accounts" desc="Manage integrations" right={<span style={{ display: "flex", color: "rgba(255,255,255,0.5)" }}><IcChevron s={16} /></span>} />
-      </div>
       <div style={{ marginTop: 24, background: "rgba(255,255,255,0.06)", borderRadius: 20, padding: "18px 16px", border: "1px solid rgba(255,255,255,0.06)", textAlign: "center" }}>
         <div style={{ display: "flex", justifyContent: "center", marginBottom: 10 }}><Logo s={46} /></div>
         <div style={{ fontSize: 15, fontWeight: 700, color: "#fff", marginBottom: 4 }}>SICAC</div>
-        <div style={{ fontSize: 11, color: "rgba(255,255,255,0.64)", marginBottom: 14 }}>Music Player v2.0.0</div>
+        <div style={{ fontSize: 11, color: "rgba(255,255,255,0.64)", marginBottom: 14 }}>Music Player</div>
         <div style={{ width: 32, height: 1, background: "rgba(255,255,255,0.1)", margin: "0 auto 14px" }} />
         <div style={{ fontSize: 11, color: "rgba(255,255,255,0.64)", marginBottom: 5 }}>Developed by</div>
         <div style={{ fontSize: 14, fontWeight: 700, color: "#fff", marginBottom: 2 }}>devnsepele</div>
@@ -1852,13 +1722,6 @@ const Header = ({ tab, googleUser, onLogout }) => {
 
               {/* Menu items */}
               <button
-                onClick={() => { setShowMenu(false); }}
-                style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "12px 16px", background: "none", border: "none", color: "rgba(255,255,255,0.75)", fontSize: 13, cursor: "pointer", textAlign: "left" }}
-              >
-                <IcBell s={16} />
-                Notifikasi
-              </button>
-              <button
                 onClick={() => { setShowMenu(false); onLogout(); }}
                 style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "12px 16px", background: "none", border: "none", color: "#FCA5A5", fontSize: 13, cursor: "pointer", textAlign: "left", borderTop: "1px solid rgba(255,255,255,0.06)" }}
               >
@@ -2038,7 +1901,7 @@ export default function SicacApp() {
     onClose: () => { setShowFull(false); player.stop(); }, onExpand: () => setShowFull(true),
   } : null;
 
-  // ── XP & level: +1 XP tiap 5 detik mendengarkan (offline/online), +5 XP bonus saat lagu baru dimulai ──
+  // ── XP & level: +1 XP tiap 5 detik mendengarkan (offline/online) ──
   const addXp = useCallback((n) => {
     if (!persistenceReady) return;
     setProfile(p => ({ ...p, xp: (p.xp || 0) + n }));
@@ -2051,13 +1914,6 @@ export default function SicacApp() {
     const t = setInterval(() => { if (++sec % 5 === 0) addXp(1); }, 1000);
     return () => clearInterval(t);
   }, [listening, persistenceReady, addXp]);
-
-  const bonusSeen = useRef(new Set());
-  useEffect(() => {
-    if (!persistenceReady) return;
-    const key = online.playing && online.track ? `o:${online.track.id}` : player.isPlaying && player.currentSong ? `l:${player.currentSong.id}` : null;
-    if (key && !bonusSeen.current.has(key)) { bonusSeen.current.add(key); addXp(5); }
-  }, [online.playing, online.track?.id, player.isPlaying, player.currentSong?.id, persistenceReady, addXp]);
 
   // Notifikasi naik level
   const lvlRef = useRef(null);
@@ -2085,44 +1941,43 @@ export default function SicacApp() {
     next: player.playNext, prev: player.playPrev, seek: player.seek,
   };
 
+  // Plugin native (Android) → notifikasi media + foreground service agar tetap berbunyi di latar belakang.
+  // Di web/browser plugin otomatis memakai navigator.mediaSession.
+  const safe = (p) => { try { p?.catch?.(() => {}); } catch (_) {} };
+
   useEffect(() => {
-    if (!("mediaSession" in navigator) || typeof MediaMetadata === "undefined") return;
-    const ms = navigator.mediaSession;
     try {
       if (src === "online" && online.track) {
         const t = online.track;
-        ms.metadata = new MediaMetadata({
+        safe(MediaSession.setMetadata({
           title: t.title || "Online", artist: t.channel || "", album: "SICAC Online",
           artwork: t.thumb ? [{ src: t.thumb, sizes: "320x180", type: "image/jpeg" }] : [],
-        });
+        }));
       } else if (src === "library" && player.currentSong) {
         const s = player.currentSong;
-        ms.metadata = new MediaMetadata({
+        safe(MediaSession.setMetadata({
           title: s.title || "Lagu", artist: s.artist || "Unknown Artist", album: "SICAC Library", artwork: makeArtwork(s),
-        });
-      } else {
-        ms.metadata = null; ms.playbackState = "none";
+        }));
       }
     } catch (_) {}
   }, [src, online.track?.id, player.currentSong?.id]);
 
   useEffect(() => {
-    if (!("mediaSession" in navigator)) return;
-    try { navigator.mediaSession.playbackState = !src ? "none" : (src === "online" ? online.playing : player.isPlaying) ? "playing" : "paused"; } catch (_) {}
+    if (!src) return;
+    const on = src === "online" ? online.playing : player.isPlaying;
+    safe(MediaSession.setPlaybackState({ playbackState: on ? "playing" : "paused" }));
   }, [src, online.playing, player.isPlaying]);
 
   useEffect(() => {
-    if (!("mediaSession" in navigator) || !src) return;
+    if (!src) return;
     const dur = src === "online" ? online.duration : player.duration;
     const pos = src === "online" ? online.progress : player.progress;
     if (!isFinite(dur) || dur <= 0) return;
-    try { navigator.mediaSession.setPositionState({ duration: dur, position: Math.min(Math.max(pos || 0, 0), dur), playbackRate: 1 }); } catch (_) {}
+    safe(MediaSession.setPositionState({ duration: dur, position: Math.min(Math.max(pos || 0, 0), dur), playbackRate: 1 }));
   }, [src, Math.floor(online.progress), Math.floor(player.progress), online.duration, player.duration]);
 
   useEffect(() => {
-    if (!("mediaSession" in navigator)) return;
-    const ms = navigator.mediaSession;
-    const set = (a, fn) => { try { ms.setActionHandler(a, fn); } catch (_) {} };
+    const set = (action, fn) => safe(MediaSession.setActionHandler({ action }, fn));
     set("play",          () => ctrlRef.current.play?.());
     set("pause",         () => ctrlRef.current.pause?.());
     set("nexttrack",     () => ctrlRef.current.next?.());
@@ -2174,8 +2029,8 @@ export default function SicacApp() {
           <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 18px 10px 12px", borderRadius: 99, background: "var(--panel)", border: "1px solid rgba(var(--accent-rgb),0.45)", boxShadow: "0 14px 40px rgba(0,0,0,.55)", animation: "fpIn .35s cubic-bezier(.22,1,.36,1) both" }}>
             <LevelBadge level={lvlToast} size={30} />
             <div>
-              <div style={{ fontSize: 11, color: "var(--accent-soft)", fontWeight: 700, letterSpacing: .5 }}>NAIK LEVEL!</div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: "#fff" }}>Lv {lvlToast.idx} · {lvlToast.name}</div>
+              <div style={{ fontSize: 11, color: "var(--accent-soft)", fontWeight: 700, letterSpacing: .5 }}>PANGKAT BARU!</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#fff" }}>Lv {lvlToast.level.toLocaleString()} · {lvlToast.name}</div>
             </div>
           </div>
         </div>
