@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { MediaSession } from "@jofr/capacitor-media-session";
+import { MediaSession } from "@capgo/capacitor-media-session";
 
 // ─── GOOGLE CLIENT ID ───────────────────────────────────────────────────────
 // Ganti dengan Client ID dari Google Cloud Console Anda
