@@ -1,5 +1,189 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 
+// ─── GOOGLE CLIENT ID ───────────────────────────────────────────────────────
+// Ganti dengan Client ID dari Google Cloud Console Anda
+const G_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com";
+
+// ─── GOOGLE LOGIN SCREEN ────────────────────────────────────────────────────
+const LOGO_ANIM_CSS = `
+@keyframes logoFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:translateY(0)}}
+@keyframes shimmer{0%{background-position:-200% center}100%{background-position:200% center}}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(195,68,102,0)}50%{box-shadow:0 0 0 14px rgba(195,68,102,0)}}
+.login-logo{animation:logoFloat 3.2s ease-in-out infinite}
+.login-card{animation:fadeUp 0.55s cubic-bezier(0.22,1,0.36,1) both}
+.shimmer-text{background:linear-gradient(90deg,rgba(255,255,255,0.5) 0%,#fff 40%,rgba(255,255,255,0.5) 100%);background-size:200% auto;-webkit-background-clip:text;-webkit-text-fill-color:transparent;animation:shimmer 3s linear infinite}
+.g-btn:active{transform:scale(0.97)}
+`;
+
+const GoogleLoginScreen = ({ onLogin }) => {
+  const gBtnRef  = useRef(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError]     = useState("");
+
+  useEffect(() => {
+    // Load Google Identity Services script
+    const loadGSI = () => {
+      if (window.google?.accounts) { initGSI(); return; }
+      const s = document.createElement("script");
+      s.src = "https://accounts.google.com/gsi/client";
+      s.async = true; s.defer = true;
+      s.onload = initGSI;
+      s.onerror = () => setError("Gagal memuat Google Sign-In.");
+      document.head.appendChild(s);
+    };
+
+    const initGSI = () => {
+      try {
+        window.google.accounts.id.initialize({
+          client_id: G_CLIENT_ID,
+          callback: handleCredential,
+          auto_select: false,
+          cancel_on_tap_outside: false,
+        });
+        if (gBtnRef.current) {
+          window.google.accounts.id.renderButton(gBtnRef.current, {
+            type: "standard", theme: "filled_black", size: "large",
+            shape: "pill", width: 280, text: "signin_with",
+          });
+        }
+      } catch (e) {
+        setError("Gagal menginisialisasi Google Sign-In.");
+      }
+    };
+
+    loadGSI();
+  }, []);
+
+  const handleCredential = (response) => {
+    setLoading(true); setError("");
+    try {
+      // Decode JWT payload (tanpa verifikasi — untuk demo/client-side)
+      const payload = JSON.parse(atob(response.credential.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+      const user = {
+        name:    payload.name  || "Pengguna",
+        email:   payload.email || "",
+        avatar:  payload.picture || null,
+        sub:     payload.sub || "",
+      };
+      onLogin(user);
+    } catch(e) {
+      setError("Gagal memproses akun Google. Coba lagi.");
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div style={{
+      minHeight: "100dvh", display: "flex", flexDirection: "column",
+      alignItems: "center", justifyContent: "center",
+      background: "#0E0C1E", position: "relative", overflow: "hidden",
+    }}>
+      <style>{LOGO_ANIM_CSS}</style>
+
+      {/* Background blobs */}
+      <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
+        <div style={{ position: "absolute", top: "-18%", left: "-15%", width: 420, height: 420, borderRadius: "50%", background: "radial-gradient(circle,rgba(195,68,102,0.18) 0%,transparent 70%)" }} />
+        <div style={{ position: "absolute", bottom: "-12%", right: "-18%", width: 380, height: 380, borderRadius: "50%", background: "radial-gradient(circle,rgba(91,33,182,0.22) 0%,transparent 70%)" }} />
+        <div style={{ position: "absolute", top: "40%", left: "60%", width: 200, height: 200, borderRadius: "50%", background: "radial-gradient(circle,rgba(14,118,188,0.12) 0%,transparent 70%)" }} />
+      </div>
+
+      {/* Grid lines */}
+      <div style={{
+        position: "absolute", inset: 0, pointerEvents: "none", opacity: 0.04,
+        backgroundImage: "linear-gradient(rgba(255,255,255,0.8) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.8) 1px,transparent 1px)",
+        backgroundSize: "48px 48px",
+      }} />
+
+      {/* Card */}
+      <div className="login-card" style={{ width: "100%", maxWidth: 360, padding: "0 24px", position: "relative", zIndex: 2 }}>
+
+        {/* Logo */}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 40 }}>
+          <div className="login-logo" style={{
+            width: 84, height: 84, borderRadius: 26, marginBottom: 20,
+            background: "linear-gradient(145deg,#C34466,#7C3AED)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            boxShadow: "0 0 0 1px rgba(195,68,102,0.3), 0 20px 50px rgba(195,68,102,0.3)",
+          }}>
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="#fff">
+              <rect x="3" y="9" width="3.4" height="7" rx="1.7" />
+              <rect x="8.2" y="4" width="3.4" height="16" rx="1.7" />
+              <rect x="13.4" y="7" width="3.4" height="10" rx="1.7" />
+              <rect x="18.6" y="10" width="3.4" height="4" rx="1.7" />
+            </svg>
+          </div>
+          <div className="shimmer-text" style={{ fontSize: 34, fontWeight: 800, letterSpacing: -1, marginBottom: 6, fontFamily: "-apple-system,BlinkMacSystemFont,'SF Pro Display','Helvetica Neue',system-ui,sans-serif" }}>
+            SICAC
+          </div>
+          <div style={{ fontSize: 14, color: "rgba(255,255,255,0.45)", letterSpacing: 0.5 }}>
+            Music Player
+          </div>
+        </div>
+
+        {/* Login card */}
+        <div style={{
+          background: "rgba(255,255,255,0.05)",
+          border: "1px solid rgba(255,255,255,0.10)",
+          borderRadius: 28, padding: "32px 28px 28px",
+          backdropFilter: "blur(20px)",
+          boxShadow: "0 24px 80px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.08)",
+        }}>
+          <div style={{ textAlign: "center", marginBottom: 28 }}>
+            <div style={{ fontSize: 20, fontWeight: 700, color: "#fff", marginBottom: 6, fontFamily: "-apple-system,BlinkMacSystemFont,'SF Pro Display','Helvetica Neue',system-ui,sans-serif" }}>
+              Selamat datang
+            </div>
+            <div style={{ fontSize: 13, color: "rgba(255,255,255,0.48)", lineHeight: 1.5 }}>
+              Masuk dengan akun Google kamu untuk mulai mendengarkan musik
+            </div>
+          </div>
+
+          {/* Divider */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
+            <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.08)" }} />
+            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.28)", letterSpacing: 1 }}>MASUK DENGAN</div>
+            <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.08)" }} />
+          </div>
+
+          {/* Google button container */}
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: 16, minHeight: 44 }}>
+            {loading ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 10, color: "rgba(255,255,255,0.55)", fontSize: 13 }}>
+                <div style={{ width: 18, height: 18, borderRadius: "50%", border: "2px solid rgba(255,255,255,0.15)", borderTopColor: "#C34466", animation: "spin 0.8s linear infinite" }} />
+                Masuk...
+              </div>
+            ) : (
+              <div ref={gBtnRef} className="g-btn" />
+            )}
+          </div>
+
+          {error && (
+            <div style={{ background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 12, padding: "10px 14px", fontSize: 12, color: "#FCA5A5", textAlign: "center", marginBottom: 12 }}>
+              {error}
+            </div>
+          )}
+
+          {/* Guest mode */}
+          <div style={{ textAlign: "center", marginTop: 18 }}>
+            <button
+              onClick={() => onLogin({ name: "Tamu", email: "", avatar: null, sub: "guest", isGuest: true })}
+              style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.35)", fontSize: 12, textDecoration: "underline", textDecorationColor: "rgba(255,255,255,0.15)" }}
+            >
+              Lanjut sebagai Tamu
+            </button>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div style={{ textAlign: "center", marginTop: 24, fontSize: 11, color: "rgba(255,255,255,0.2)", lineHeight: 1.7 }}>
+          Dengan masuk, kamu menyetujui syarat penggunaan.{"\n"}
+          <span style={{ color: "rgba(255,255,255,0.3)" }}>devnsepele © 2025</span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // ─── CONSTANTS ─────────────────────────────────────────────────────────────
 // Ikon: pixel-art dari Level_Rank.zip (stone → admin), disematkan sebagai data URI
 const LEVELS = [
@@ -159,22 +343,180 @@ const mapYT = (it) => ({
   thumb: it.snippet?.thumbnails?.medium?.url,
 });
 
+// ─── ONLINE MUSIC PLAYER (YouTube audio-mode, no video shown) ──────────────
+const OnlineMusicPlayer = ({ track, onClose }) => {
+  const iframeRef  = useRef(null);
+  const playerRef  = useRef(null);
+  const [playing, setPlaying]   = useState(true);
+  const [progress, setProgress] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [ready, setReady]       = useState(false);
+  const timerRef = useRef(null);
+
+  // Load YT IFrame API once
+  useEffect(() => {
+    const initPlayer = () => {
+      playerRef.current = new window.YT.Player(iframeRef.current, {
+        videoId: track.id,
+        playerVars: {
+          autoplay: 1, playsinline: 1, controls: 0,
+          disablekb: 1, fs: 0, modestbranding: 1, rel: 0, iv_load_policy: 3,
+        },
+        events: {
+          onReady: (e) => {
+            setReady(true);
+            setDuration(e.target.getDuration() || 0);
+            e.target.playVideo();
+          },
+          onStateChange: (e) => {
+            const YT = window.YT.PlayerState;
+            setPlaying(e.data === YT.PLAYING);
+            if (e.data === YT.ENDED) { setPlaying(false); setProgress(0); }
+          },
+        },
+      });
+    };
+
+    if (!window.YT) {
+      const tag = document.createElement("script");
+      tag.src = "https://www.youtube.com/iframe_api";
+      document.head.appendChild(tag);
+      window.onYouTubeIframeAPIReady = initPlayer;
+    } else {
+      initPlayer();
+    }
+    return () => {
+      if (playerRef.current) { try { playerRef.current.destroy(); } catch(_) {} }
+      clearInterval(timerRef.current);
+    };
+  }, [track.id]);
+
+  // Poll progress
+  useEffect(() => {
+    timerRef.current = setInterval(() => {
+      try {
+        const p = playerRef.current;
+        if (!p) return;
+        const cur = p.getCurrentTime?.() || 0;
+        const dur = p.getDuration?.() || 0;
+        setProgress(cur);
+        if (dur > 0) setDuration(dur);
+      } catch(_) {}
+    }, 500);
+    return () => clearInterval(timerRef.current);
+  }, []);
+
+  const togglePlay = () => {
+    try {
+      if (playing) playerRef.current?.pauseVideo();
+      else playerRef.current?.playVideo();
+    } catch(_) {}
+  };
+
+  const fmtT = (s) => {
+    if (!s || isNaN(s)) return "0:00";
+    return `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,"0")}`;
+  };
+
+  const pct = duration > 0 ? (progress / duration) * 100 : 0;
+
+  return (
+    <div style={{
+      position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 9000,
+      background: "linear-gradient(to top, rgba(var(--bg-rgb),0.99) 0%, rgba(var(--bg-rgb),0.97) 100%)",
+      borderTop: "1px solid rgba(255,255,255,0.10)",
+      backdropFilter: "blur(28px)", padding: "0 0 env(safe-area-inset-bottom,0px)",
+    }}>
+      {/* hidden YT iframe */}
+      <div style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", opacity: 0, pointerEvents: "none" }}>
+        <div ref={iframeRef} />
+      </div>
+
+      {/* Album art hero strip */}
+      <div style={{
+        height: 3, background: `linear-gradient(90deg, var(--accent) ${pct}%, rgba(255,255,255,0.08) ${pct}%)`,
+        transition: "background 0.5s linear",
+      }} />
+
+      <div style={{ padding: "14px 18px 16px", display: "flex", flexDirection: "column", gap: 14 }}>
+        {/* Track info row */}
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          {/* Thumbnail as music art */}
+          <div style={{
+            width: 54, height: 54, borderRadius: 14, flexShrink: 0, overflow: "hidden",
+            background: track.thumb ? `url(${track.thumb}) center/cover` : "var(--hero1)",
+            boxShadow: "0 4px 16px rgba(0,0,0,0.5)",
+          }} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="disp" style={{
+              fontSize: 15, fontWeight: 700, color: "#fff",
+              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+            }}>{track.title}</div>
+            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", marginTop: 2 }}>{track.channel}</div>
+          </div>
+          <button onClick={onClose} style={{
+            background: "rgba(255,255,255,0.09)", border: "none", borderRadius: 10,
+            width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center",
+            color: "rgba(255,255,255,0.7)", cursor: "pointer", flexShrink: 0,
+          }}>
+            <IcClose s={16} />
+          </button>
+        </div>
+
+        {/* Time / progress */}
+        <div>
+          <div style={{
+            height: 4, borderRadius: 999, background: "rgba(255,255,255,0.10)", overflow: "hidden", marginBottom: 6,
+          }}>
+            <div style={{
+              height: "100%", borderRadius: 999, background: "var(--accent-soft)",
+              width: `${pct}%`, transition: "width 0.5s linear",
+            }} />
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "rgba(255,255,255,0.45)" }}>
+            <span>{fmtT(progress)}</span>
+            <span>{fmtT(duration)}</span>
+          </div>
+        </div>
+
+        {/* Controls */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 22 }}>
+          <button onClick={togglePlay} style={{
+            width: 52, height: 52, borderRadius: "50%", border: "none", cursor: "pointer",
+            background: "var(--accent)", color: "#fff",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            boxShadow: "0 4px 18px rgba(var(--accent-rgb),0.45)",
+            opacity: ready ? 1 : 0.5,
+          }}>
+            {playing ? <IcPause s={22} /> : <IcPlay s={22} />}
+          </button>
+          {!ready && (
+            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.45)", position: "absolute", bottom: 78 }}>
+              Memuat audio...
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const OnlineHome = ({ ytKey }) => {
-  const [q, setQ]           = useState("");
-  const [items, setItems]   = useState([]);
-  const [loading, setLoad]  = useState(false);
-  const [error, setError]   = useState("");
-  const [watch, setWatch]   = useState(null);
+  const [q, setQ]          = useState("");
+  const [items, setItems]  = useState([]);
+  const [loading, setLoad] = useState(false);
+  const [error, setError]  = useState("");
+  const [nowPlaying, setNowPlaying] = useState(null);
+  const [category, setCategory]     = useState("all"); // "all" | "trending" | "liked"
 
   const load = useCallback(async (query) => {
     if (!ytKey) return;
     setLoad(true); setError("");
     try {
-      // videoCategoryId=10 → kategori Music
       const url = query
-        ? `${YT_API}/search?part=snippet&type=video&videoCategoryId=10&maxResults=20&q=${encodeURIComponent(query)}&key=${ytKey}`
-        : `${YT_API}/videos?part=snippet&chart=mostPopular&videoCategoryId=10&maxResults=20&key=${ytKey}`;
-      const res = await fetch(url);
+        ? `${YT_API}/search?part=snippet&type=video&videoCategoryId=10&maxResults=24&q=${encodeURIComponent(query)}&key=${ytKey}`
+        : `${YT_API}/videos?part=snippet&chart=mostPopular&videoCategoryId=10&maxResults=24&key=${ytKey}`;
+      const res  = await fetch(url);
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error?.message || "Permintaan gagal");
       setItems((data.items || []).map(mapYT));
@@ -185,44 +527,145 @@ const OnlineHome = ({ ytKey }) => {
   useEffect(() => { load(""); }, [load]);
 
   if (!ytKey) return (
-    <div style={{ textAlign: "center", padding: "36px 20px", background: "rgba(255,255,255,0.055)", borderRadius: 18 }}>
-      <div className="disp" style={{ fontSize: 20, fontWeight: 700, color: "#fff", marginBottom: 6 }}>Online belum aktif</div>
-      <div style={{ fontSize: 13, color: "rgba(255,255,255,0.7)", lineHeight: 1.5 }}>
-        API musik online belum dikonfigurasi. Atur API melalui konfigurasi build/Termux, bukan dari menu Pengaturan.
+    <div style={{
+      textAlign: "center", padding: "48px 24px",
+      background: "linear-gradient(135deg,rgba(255,255,255,0.04),rgba(255,255,255,0.02))",
+      borderRadius: 20, border: "1px solid rgba(255,255,255,0.07)",
+    }}>
+      <div style={{
+        width: 64, height: 64, borderRadius: 20, background: "rgba(var(--accent-rgb),0.15)",
+        display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px",
+      }}>
+        <IcMusic s={28} />
+      </div>
+      <div className="disp" style={{ fontSize: 18, fontWeight: 700, color: "#fff", marginBottom: 8 }}>
+        Online belum aktif
+      </div>
+      <div style={{ fontSize: 13, color: "rgba(255,255,255,0.55)", lineHeight: 1.6, maxWidth: 260, margin: "0 auto" }}>
+        Konfigurasi API YouTube Music melalui build atau Termux untuk mengaktifkan streaming online.
       </div>
     </div>
   );
 
   return (
-    <div>
-      <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-        <input value={q} onChange={e => setQ(e.target.value)} onKeyDown={e => e.key === "Enter" && load(q.trim())}
-          placeholder="Cari lagu atau artis" aria-label="Cari di YouTube"
-          style={{ flex: 1, minWidth: 0, background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.14)", borderRadius: 12, padding: "11px 14px", fontSize: 14, color: "#fff", outline: "none" }} />
-        <button onClick={() => load(q.trim())} style={{ background: "var(--accent)", border: "none", borderRadius: 12, padding: "0 16px", fontSize: 13, fontWeight: 700, color: "#fff", cursor: "pointer" }}>Cari</button>
-      </div>
-      <div className="disp" style={{ fontSize: 20, fontWeight: 700, color: "#fff", marginBottom: 8 }}>{q.trim() ? "Hasil pencarian" : "Musik populer"}</div>
-      {loading && <div style={{ fontSize: 13, color: "rgba(255,255,255,0.7)", padding: 12 }}>Memuat…</div>}
-      {error && <div role="alert" style={{ fontSize: 13, color: "#FFB4A8", padding: 12 }}>{error}</div>}
-      {items.map(v => (
-        <button key={v.id} onClick={() => setWatch(v)} style={{ display: "flex", gap: 12, width: "100%", textAlign: "left", background: "none", border: "none", padding: "8px 4px", cursor: "pointer", color: "#fff" }}>
-          <div style={{ width: 112, height: 63, borderRadius: 10, flexShrink: 0, background: v.thumb ? `url(${v.thumb}) center/cover` : "rgba(255,255,255,0.08)" }} />
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 14, fontWeight: 600, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{v.title}</div>
-            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.62)", marginTop: 3 }}>{v.channel}</div>
-          </div>
+    <div style={{ paddingBottom: nowPlaying ? 160 : 0 }}>
+      {/* Search bar */}
+      <div style={{
+        display: "flex", gap: 10, marginBottom: 18,
+        background: "rgba(255,255,255,0.05)", borderRadius: 16,
+        padding: "6px 6px 6px 14px", border: "1px solid rgba(255,255,255,0.09)",
+      }}>
+        <IcSearch s={18} />
+        <input
+          value={q}
+          onChange={e => setQ(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && load(q.trim())}
+          placeholder="Cari lagu atau artis..."
+          aria-label="Cari musik di YouTube"
+          style={{
+            flex: 1, background: "transparent", border: "none", fontSize: 14,
+            color: "#fff", outline: "none",
+          }}
+        />
+        <button
+          onClick={() => load(q.trim())}
+          style={{
+            background: "var(--accent)", border: "none", borderRadius: 11,
+            padding: "8px 16px", fontSize: 13, fontWeight: 700, color: "#fff", cursor: "pointer",
+          }}
+        >
+          Cari
         </button>
-      ))}
-      {watch && (
-        <div style={{ marginTop: 14, marginBottom: 16, padding: 10, borderRadius: 16, background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.12)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-            <div style={{ flex: 1, minWidth: 0, color: "#fff", fontSize: 14, fontWeight: 650, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{watch.title}</div>
-            <button onClick={() => setWatch(null)} aria-label="Hentikan pemutaran online" style={{ background: "rgba(255,255,255,0.12)", border: 0, borderRadius: 10, padding: "8px 11px", color: "#fff", cursor: "pointer" }}>Stop</button>
-          </div>
-          <iframe title={watch.title} src={`https://www.youtube.com/embed/${watch.id}?autoplay=1&playsinline=1`}
-            allow="autoplay; encrypted-media; picture-in-picture" allowFullScreen
-            style={{ display: "block", width: "100%", aspectRatio: "16/9", border: 0, borderRadius: 12 }} />
+      </div>
+
+      {/* Section label */}
+      <div className="disp" style={{ fontSize: 18, fontWeight: 700, color: "#fff", marginBottom: 12 }}>
+        {q.trim() ? `Hasil: "${q.trim()}"` : "Musik Populer"}
+      </div>
+
+      {/* Status */}
+      {loading && (
+        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "16px 0", color: "rgba(255,255,255,0.5)", fontSize: 13 }}>
+          <div style={{ width: 18, height: 18, borderRadius: "50%", border: "2px solid rgba(255,255,255,0.2)", borderTopColor: "var(--accent-soft)", animation: "spin 0.8s linear infinite", flexShrink: 0 }} />
+          Memuat musik...
         </div>
+      )}
+      {error && (
+        <div role="alert" style={{
+          background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.25)",
+          borderRadius: 12, padding: "12px 14px", fontSize: 13, color: "#FCA5A5", marginBottom: 10,
+        }}>
+          {error}
+        </div>
+      )}
+
+      {/* Track list */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        {items.map((v, i) => {
+          const isActive = nowPlaying?.id === v.id;
+          return (
+            <button
+              key={v.id}
+              onClick={() => setNowPlaying(v)}
+              style={{
+                display: "flex", alignItems: "center", gap: 12, width: "100%",
+                textAlign: "left", background: isActive ? "rgba(var(--accent-rgb),0.12)" : "transparent",
+                border: isActive ? "1px solid rgba(var(--accent-rgb),0.25)" : "1px solid transparent",
+                borderRadius: 14, padding: "10px 12px", cursor: "pointer", color: "#fff",
+                transition: "background 0.15s, border 0.15s",
+              }}
+            >
+              {/* Number / playing indicator */}
+              <div style={{
+                width: 20, textAlign: "center", fontSize: 12, flexShrink: 0,
+                color: isActive ? "var(--accent-soft)" : "rgba(255,255,255,0.3)", fontWeight: 600,
+              }}>
+                {isActive ? <IcMusic s={13} /> : i + 1}
+              </div>
+
+              {/* Thumbnail as album art square */}
+              <div style={{
+                width: 48, height: 48, borderRadius: 12, flexShrink: 0, overflow: "hidden",
+                background: v.thumb ? `url(${v.thumb}) center/cover` : "var(--hero1)",
+                boxShadow: isActive ? "0 0 0 2px var(--accent-soft)" : "none",
+                position: "relative",
+              }}>
+                {isActive && (
+                  <div style={{
+                    position: "absolute", inset: 0, background: "rgba(0,0,0,0.35)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                  }}>
+                    <IcMusic s={16} />
+                  </div>
+                )}
+              </div>
+
+              {/* Info */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{
+                  fontSize: 14, fontWeight: 600,
+                  color: isActive ? "var(--accent-soft)" : "#fff",
+                  overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                }}>{v.title}</div>
+                <div style={{ fontSize: 11, color: "rgba(255,255,255,0.48)", marginTop: 2 }}>{v.channel}</div>
+              </div>
+
+              {/* Play icon */}
+              <div style={{ color: isActive ? "var(--accent-soft)" : "rgba(255,255,255,0.25)", flexShrink: 0 }}>
+                {isActive ? <IcPause s={16} /> : <IcPlay s={16} />}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Online music player - fixed bottom */}
+      {nowPlaying && (
+        <OnlineMusicPlayer
+          key={nowPlaying.id}
+          track={nowPlaying}
+          onClose={() => setNowPlaying(null)}
+        />
       )}
     </div>
   );
@@ -1318,17 +1761,87 @@ const BottomNav = ({ active, onChange }) => (
 );
 
 // ─── HEADER ────────────────────────────────────────────────────────────────
-const Header = ({ tab }) => {
+const Header = ({ tab, googleUser, onLogout }) => {
+  const [showMenu, setShowMenu] = useState(false);
   const titles = { home: "SICAC", upload: "Upload", history: "History", profile: "Profile", settings: "Settings" };
   return (
-    <div style={{ position: "sticky", top: 0, zIndex: 30, background: "rgba(var(--bg-rgb),0.9)", backdropFilter: "blur(16px)", borderBottom: "none", padding: "16px 18px 12px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+    <div style={{ position: "sticky", top: "env(safe-area-inset-top,0px)", zIndex: 30, background: "rgba(var(--bg-rgb),0.92)", backdropFilter: "blur(20px)", padding: "14px 18px 10px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         {tab === "home" && <Logo s={32} />}
-        <div className="disp" style={{ fontSize: tab === "home" ? 28 : 24, fontWeight: 700, color: "#fff" }}>{titles[tab]}</div>
+        <div className="disp" style={{ fontSize: tab === "home" ? 28 : 22, fontWeight: 700, color: "#fff" }}>{titles[tab]}</div>
       </div>
-      <button style={{ width: 38, height: 38, borderRadius: "50%", background: "rgba(255,255,255,0.1)", border: "none", display: "flex", alignItems: "center", justifyContent: "center", color: "rgba(255,255,255,0.55)", cursor: "pointer" }}>
-        <IcBell s={18} />
-      </button>
+
+      {/* Google user avatar + menu */}
+      <div style={{ position: "relative" }}>
+        <button
+          onClick={() => setShowMenu(v => !v)}
+          style={{
+            width: 36, height: 36, borderRadius: "50%", border: "2px solid rgba(255,255,255,0.18)",
+            background: "rgba(255,255,255,0.08)", overflow: "hidden", cursor: "pointer",
+            display: "flex", alignItems: "center", justifyContent: "center", padding: 0,
+          }}
+        >
+          {googleUser?.avatar
+            ? <img src={googleUser.avatar} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            : <IcUser s={18} />}
+        </button>
+
+        {showMenu && (
+          <>
+            <div onClick={() => setShowMenu(false)} style={{ position: "fixed", inset: 0, zIndex: 99 }} />
+            <div style={{
+              position: "absolute", top: "calc(100% + 8px)", right: 0, zIndex: 100,
+              background: "var(--panel)", border: "1px solid rgba(255,255,255,0.12)",
+              borderRadius: 18, minWidth: 210, overflow: "hidden",
+              boxShadow: "0 16px 50px rgba(0,0,0,0.6)", padding: "6px 0",
+            }}>
+              {/* User info */}
+              <div style={{ padding: "14px 16px 12px", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div style={{ width: 40, height: 40, borderRadius: "50%", overflow: "hidden", flexShrink: 0, background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    {googleUser?.avatar
+                      ? <img src={googleUser.avatar} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                      : <IcUser s={20} />}
+                  </div>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {googleUser?.name || "Tamu"}
+                    </div>
+                    {googleUser?.email && (
+                      <div style={{ fontSize: 11, color: "rgba(255,255,255,0.45)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {googleUser.email}
+                      </div>
+                    )}
+                    {googleUser?.isGuest && (
+                      <div style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", marginTop: 1 }}>Mode Tamu</div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Menu items */}
+              <button
+                onClick={() => { setShowMenu(false); }}
+                style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "12px 16px", background: "none", border: "none", color: "rgba(255,255,255,0.75)", fontSize: 13, cursor: "pointer", textAlign: "left" }}
+              >
+                <IcBell s={16} />
+                Notifikasi
+              </button>
+              <button
+                onClick={() => { setShowMenu(false); onLogout(); }}
+                style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "12px 16px", background: "none", border: "none", color: "#FCA5A5", fontSize: 13, cursor: "pointer", textAlign: "left", borderTop: "1px solid rgba(255,255,255,0.06)" }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                  <polyline points="16 17 21 12 16 7" />
+                  <line x1="21" y1="12" x2="9" y2="12" />
+                </svg>
+                Keluar
+              </button>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 };
@@ -1376,6 +1889,36 @@ async function writeSicacState(value) {
 }
 
 export default function SicacApp() {
+  // ─── Google Auth State ─────────────────────────────────────────────────
+  const [googleUser, setGoogleUser] = useState(() => {
+    try {
+      const saved = localStorage.getItem("sicac-guser");
+      return saved ? JSON.parse(saved) : null;
+    } catch { return null; }
+  });
+
+  const handleGoogleLogin = (user) => {
+    setGoogleUser(user);
+    try { localStorage.setItem("sicac-guser", JSON.stringify(user)); } catch {}
+    // Pre-fill profile from Google account
+    if (!user.isGuest) {
+      setProfile(prev => ({
+        ...prev,
+        name:   user.name   || prev.name,
+        avatar: user.avatar || prev.avatar,
+        bio:    prev.bio || "Music is life",
+      }));
+    }
+  };
+
+  const handleLogout = () => {
+    setGoogleUser(null);
+    try {
+      localStorage.removeItem("sicac-guser");
+      window.google?.accounts?.id?.disableAutoSelect?.();
+    } catch {}
+  };
+
   const [tab, setTab]                   = useState("home");
   const [themeId, setThemeIdRaw]        = useState(() => { try { return localStorage.getItem("sicac-theme") || "midnight"; } catch { return "midnight"; } });
   const setThemeId = (id) => { setThemeIdRaw(id); try { localStorage.setItem("sicac-theme", id); } catch {} };
@@ -1451,10 +1994,15 @@ export default function SicacApp() {
     setHistory(h => [{ ...s, playedAt: timeStr }, ...h].slice(0, 50));
   }, [player.currentSong]);
 
+  // Show login screen if not authenticated
+  if (!googleUser) {
+    return <GoogleLoginScreen onLogin={handleGoogleLogin} />;
+  }
+
   return (
     <div style={{ ...themeVars(theme), background: "var(--bg)", minHeight: "100dvh", fontFamily: "-apple-system, BlinkMacSystemFont, \"SF Pro Text\", \"SF Pro Display\", \"Helvetica Neue\", system-ui, sans-serif", color: "#fff", overflowX: "hidden" }}>
       <style>{GLOBAL_CSS}</style>
-      <Header tab={tab} />
+      <Header tab={tab} googleUser={googleUser} onLogout={handleLogout} />
 
       <div style={{ padding: "14px 14px 0" }}>
         <div style={{ display: tab === "home" ? "block" : "none" }}>
