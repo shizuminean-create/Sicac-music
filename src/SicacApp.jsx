@@ -161,6 +161,9 @@ const GLOBAL_CSS = `
 .disp{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Helvetica Neue',system-ui,sans-serif;letter-spacing:-0.022em}
 button,input,textarea,select{font-family:inherit}
 body{-webkit-font-smoothing:antialiased}
+html,body{overscroll-behavior:none;-webkit-tap-highlight-color:transparent}
+*{scrollbar-width:none;-ms-overflow-style:none}
+*::-webkit-scrollbar{display:none;width:0;height:0}
 @keyframes spin{to{transform:rotate(360deg)}}
 @keyframes fpIn{from{opacity:0;transform:translateY(18px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
 @keyframes eqBar{0%,100%{transform:scaleY(.3)}50%{transform:scaleY(1)}}
@@ -417,7 +420,26 @@ const useOnlinePlayer = () => {
   return { hostRef, track, queue, index, playing, progress, duration, ready, play, pause, resume, toggle, next, prev, seek, stop, rate, setRate };
 };
 
-const OnlineHome = ({ ytKey, online }) => {
+const OnlineCard = ({ v, badge, active, playing, onClick }) => (
+  <button onClick={onClick} style={{ width: 132, flexShrink: 0, textAlign: "left", background: "none", border: "none", padding: 0, cursor: "pointer", color: "#fff" }}>
+    <div style={{
+      position: "relative", width: 132, height: 132, borderRadius: 18, overflow: "hidden",
+      background: v.thumb ? `url(${v.thumb}) center/cover` : "var(--hero1)",
+      border: active ? "2px solid var(--accent-soft)" : "2px solid transparent", boxSizing: "border-box",
+    }}>
+      {badge && <span style={{ position: "absolute", left: 8, bottom: 8, fontSize: 10.5, fontWeight: 700, padding: "3px 8px", borderRadius: 99, background: "rgba(0,0,0,0.65)" }}>{badge}</span>}
+      {active && (
+        <div style={{ position: "absolute", top: 8, right: 8, width: 26, height: 26, borderRadius: "50%", background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          {playing ? <IcPause s={13} /> : <IcPlay s={13} />}
+        </div>
+      )}
+    </div>
+    <div style={{ fontSize: 12.5, fontWeight: 600, marginTop: 8, lineHeight: 1.25, color: active ? "var(--accent-soft)" : "#fff", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{v.title}</div>
+    <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{v.channel}</div>
+  </button>
+);
+
+const OnlineHome = ({ ytKey, online, plays }) => {
   const [q, setQ]          = useState("");
   const [items, setItems]  = useState([]);
   const [loading, setLoad] = useState(false);
@@ -440,6 +462,38 @@ const OnlineHome = ({ ytKey, online }) => {
   }, [ytKey]);
 
   useEffect(() => { load(""); }, [load]);
+
+  // Lagu yang sering diputar + rekomendasi berdasarkan channel favorit
+  const ranked = Object.values(plays || {}).sort((a, b) => (b.count - a.count) || ((b.last || 0) - (a.last || 0)));
+  const frequent = ranked.slice(0, 10);
+  const topChannel = (() => {
+    const m = {};
+    ranked.forEach(x => { if (x.channel) m[x.channel] = (m[x.channel] || 0) + x.count; });
+    return Object.entries(m).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+  })();
+  const [recs, setRecs] = useState([]);
+  useEffect(() => {
+    if (!ytKey || !topChannel) { setRecs([]); return; }
+    const day = dayKey();
+    try {
+      const c = JSON.parse(localStorage.getItem("sicac-recs") || "null");
+      if (c && c.day === day && c.channel === topChannel) { setRecs(c.items || []); return; }
+    } catch (_) {}
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`${YT_API}/search?part=snippet&type=video&videoCategoryId=10&maxResults=15&q=${encodeURIComponent(topChannel)}&key=${ytKey}`);
+        const data = await res.json();
+        if (!res.ok || cancelled) return;
+        const items = (data.items || []).map(mapYT);
+        setRecs(items);
+        try { localStorage.setItem("sicac-recs", JSON.stringify({ day, channel: topChannel, items })); } catch (_) {}
+      } catch (_) {}
+    })();
+    return () => { cancelled = true; };
+  }, [ytKey, topChannel]);
+  const frequentIds = new Set(frequent.map(x => x.id));
+  const recList = recs.filter(x => x.id && !frequentIds.has(x.id)).slice(0, 10);
 
   const doSearch = (query) => {
     load(query);
@@ -509,6 +563,33 @@ const OnlineHome = ({ ytKey, online }) => {
             <button key={r} onClick={() => { setQ(r); doSearch(r); }} style={{ ...chipStyle(false), padding: "6px 12px", fontSize: 12 }}>{r}</button>
           ))}
           <button onClick={() => { setRecent([]); try { localStorage.removeItem("sicac-recent"); } catch (_) {} }} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.45)", fontSize: 12, cursor: "pointer" }}>Hapus</button>
+        </div>
+      )}
+
+      {!q.trim() && frequent.length > 0 && (
+        <div style={{ marginBottom: 22 }}>
+          <div className="disp" style={{ fontSize: 18, fontWeight: 700, color: "#fff", marginBottom: 12 }}>Sering kamu putar</div>
+          <div style={{ display: "flex", gap: 12, overflowX: "auto", margin: "0 -14px", padding: "0 14px 4px" }}>
+            {frequent.map((v, i) => (
+              <OnlineCard key={v.id} v={v} badge={`${v.count}x`}
+                active={online.track?.id === v.id} playing={online.playing}
+                onClick={() => (online.track?.id === v.id ? online.toggle() : online.play(frequent, i))} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {!q.trim() && recList.length > 0 && (
+        <div style={{ marginBottom: 22 }}>
+          <div className="disp" style={{ fontSize: 18, fontWeight: 700, color: "#fff" }}>Rekomendasi untukmu</div>
+          <div style={{ fontSize: 11.5, color: "rgba(255,255,255,0.5)", margin: "3px 0 12px" }}>Berdasarkan {topChannel}</div>
+          <div style={{ display: "flex", gap: 12, overflowX: "auto", margin: "0 -14px", padding: "0 14px 4px" }}>
+            {recList.map((v, i) => (
+              <OnlineCard key={v.id} v={v}
+                active={online.track?.id === v.id} playing={online.playing}
+                onClick={() => (online.track?.id === v.id ? online.toggle() : online.play(recList, i))} />
+            ))}
+          </div>
         </div>
       )}
 
@@ -1065,7 +1146,7 @@ const BannerEditor = ({ banner, onSave, onClose }) => {
 };
 
 // ─── HOME SCREEN ───────────────────────────────────────────────────────────
-const HomeScreen = ({ player, online, songs, setSongs, profile, banner, setBanner, onEditBanner, ytKey, listen }) => {
+const HomeScreen = ({ player, online, songs, setSongs, profile, banner, setBanner, onEditBanner, ytKey, listen, plays }) => {
   const { currentSong, selectSong } = player;
   const [mode, setMode] = useState("library");
   const [libQ, setLibQ] = useState("");
@@ -1175,7 +1256,7 @@ const HomeScreen = ({ player, online, songs, setSongs, profile, banner, setBanne
       </div>
 
       {/* LIBRARY */}
-      {mode === "online" ? <OnlineHome ytKey={ytKey} online={online} /> : songs.length === 0 ? (
+      {mode === "online" ? <OnlineHome ytKey={ytKey} online={online} plays={plays} /> : songs.length === 0 ? (
         <EmptyLibrary />
       ) : (
         <>
@@ -2088,6 +2169,7 @@ export default function SicacApp() {
   const [history, setHistory]           = useState([]);
   const [stats, setStats]               = useState({ total: 0, days: {} });
   const [showSheet, setShowSheet]        = useState(false);
+  const [onlinePlays, setOnlinePlays]    = useState({});
   const [profile, setProfile]           = useState({ name: "My Name", bio: "Music is life", avatar: null, xp: 0 });
   const [banner, setBanner]             = useState({
     type: "gradient",
@@ -2108,6 +2190,7 @@ export default function SicacApp() {
         if (saved) {
           if (Array.isArray(saved.songs)) setSongs(saved.songs);
           if (Array.isArray(saved.history)) setHistory(saved.history);
+          if (saved.onlinePlays && typeof saved.onlinePlays === "object") setOnlinePlays(saved.onlinePlays);
           if (saved.stats && typeof saved.stats === "object") setStats({ total: saved.stats.total || 0, days: saved.stats.days || {} });
           if (saved.profile && typeof saved.profile === "object") {
             setProfile(prev => ({ ...prev, ...saved.profile }));
@@ -2133,11 +2216,11 @@ export default function SicacApp() {
   // IndexedDB avoids localStorage's small quota and persists uploaded audio/images.
   useEffect(() => {
     if (!persistenceReady) return;
-    const payload = { version: 1, songs, history, stats, profile, banner, profileBanner, playerBg, themeId };
+    const payload = { version: 1, songs, history, stats, onlinePlays, profile, banner, profileBanner, playerBg, themeId };
     writeSicacState(payload).catch(error => {
       console.error("SICAC: gagal menyimpan data", error);
     });
-  }, [persistenceReady, songs, history, stats, profile, banner, profileBanner, playerBg, themeId]);
+  }, [persistenceReady, songs, history, stats, onlinePlays, profile, banner, profileBanner, playerBg, themeId]);
 
   const player = usePlayer(songs);
   const online = useOnlinePlayer();
@@ -2201,6 +2284,20 @@ export default function SicacApp() {
     const t = setInterval(() => { if (++sec % 5 === 0) { addXp(1); addStats(5); } }, 1000);
     return () => clearInterval(t);
   }, [listening, persistenceReady, addXp, addStats]);
+
+  // Hitung lagu Online yang benar-benar didengarkan (≥ 15 detik)
+  useEffect(() => {
+    if (!persistenceReady || !online.playing || !online.track) return;
+    const t = online.track;
+    const timer = setTimeout(() => setOnlinePlays(p => {
+      const cur = p[t.id] || { id: t.id, title: t.title, channel: t.channel, thumb: t.thumb, count: 0 };
+      const next = { ...p, [t.id]: { ...cur, count: cur.count + 1, last: Date.now() } };
+      const keys = Object.keys(next);
+      if (keys.length > 200) keys.sort((a, b) => (next[a].count - next[b].count) || (next[a].last - next[b].last)).slice(0, keys.length - 200).forEach(k => delete next[k]);
+      return next;
+    }), 15000);
+    return () => clearTimeout(timer);
+  }, [online.playing, online.track?.id, persistenceReady]);
 
   // Layar tetap menyala selama lagu Online diputar (saat app terbuka)
   useEffect(() => {
@@ -2328,7 +2425,7 @@ export default function SicacApp() {
 
       <div style={{ padding: `14px 14px calc(env(safe-area-inset-bottom,0px) + ${floating ? 178 : 106}px)` }}>
         <div style={{ display: tab === "home" ? "block" : "none" }}>
-          <HomeScreen listen={stats} player={player} online={online} songs={songs} setSongs={setSongs} profile={profile} banner={banner} setBanner={setBanner} onEditBanner={() => setShowBanner(true)} ytKey={ytKey} />
+          <HomeScreen listen={stats} plays={onlinePlays} player={player} online={online} songs={songs} setSongs={setSongs} profile={profile} banner={banner} setBanner={setBanner} onEditBanner={() => setShowBanner(true)} ytKey={ytKey} />
         </div>
         {tab === "upload"   && <UploadScreen  songs={songs} setSongs={setSongs} />}
         {tab === "history"  && <HistoryScreen history={history} />}

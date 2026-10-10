@@ -79,3 +79,6 @@ body,
   width: 0 !important;
   height: 0 !important;
 }
+html,body{overscroll-behavior:none}
+*{scrollbar-width:none;-ms-overflow-style:none}
+*::-webkit-scrollbar{display:none;width:0;height:0}
