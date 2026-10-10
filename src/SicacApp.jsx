@@ -6,14 +6,26 @@ const G_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "YOUR_GOOGLE_CLIENT
 
 // ─── GOOGLE LOGIN SCREEN ────────────────────────────────────────────────────
 const LOGO_ANIM_CSS = `
-@keyframes logoFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
-@keyframes fadeUp{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:translateY(0)}}
+@keyframes logoFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
 @keyframes shimmer{0%{background-position:-200% center}100%{background-position:200% center}}
-@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(195,68,102,0)}50%{box-shadow:0 0 0 14px rgba(195,68,102,0)}}
-.login-logo{animation:logoFloat 3.2s ease-in-out infinite}
-.login-card{animation:fadeUp 0.55s cubic-bezier(0.22,1,0.36,1) both}
-.shimmer-text{background:linear-gradient(90deg,rgba(255,255,255,0.5) 0%,#fff 40%,rgba(255,255,255,0.5) 100%);background-size:200% auto;-webkit-background-clip:text;-webkit-text-fill-color:transparent;animation:shimmer 3s linear infinite}
-.g-btn:active{transform:scale(0.97)}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes ringSpin{to{transform:rotate(360deg)}}
+@keyframes orbA{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(36px,46px) scale(1.18)}}
+@keyframes orbB{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(-44px,-30px) scale(1.12)}}
+@keyframes orbC{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(-26px,40px) scale(1.25)}}
+@keyframes eqLogin{0%,100%{transform:scaleY(.22)}50%{transform:scaleY(1)}}
+.login-logo{animation:logoFloat 3.6s ease-in-out infinite}
+.login-ring{animation:ringSpin 7s linear infinite}
+.login-card{animation:fadeUp .65s cubic-bezier(.22,1,.36,1) both}
+.login-card2{animation:fadeUp .65s .12s cubic-bezier(.22,1,.36,1) both}
+.login-orb{filter:blur(70px);will-change:transform}
+.login-eq{transform-origin:bottom;animation:eqLogin 1.6s ease-in-out infinite}
+.shimmer-text{background:linear-gradient(90deg,rgba(255,255,255,.55) 0%,#fff 40%,rgba(255,255,255,.55) 100%);background-size:200% auto;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;animation:shimmer 3.4s linear infinite}
+.login-guest{transition:background .15s,border-color .15s,transform .1s}
+.login-guest:hover{background:rgba(255,255,255,.08)!important;border-color:rgba(255,255,255,.28)!important}
+.login-guest:active{transform:scale(.98)}
+@media (prefers-reduced-motion:reduce){.login-logo,.login-ring,.login-orb,.login-eq,.shimmer-text,.login-card,.login-card2{animation:none!important}}
 `;
 
 const GoogleLoginScreen = ({ onLogin }) => {
@@ -44,7 +56,7 @@ const GoogleLoginScreen = ({ onLogin }) => {
         if (gBtnRef.current) {
           window.google.accounts.id.renderButton(gBtnRef.current, {
             type: "standard", theme: "filled_black", size: "large",
-            shape: "pill", width: 280, text: "signin_with",
+            shape: "pill", width: 300, text: "signin_with", logo_alignment: "left",
           });
         }
       } catch (e) {
@@ -73,111 +85,135 @@ const GoogleLoginScreen = ({ onLogin }) => {
     }
   };
 
+  const FONT = "-apple-system,BlinkMacSystemFont,'SF Pro Display','Helvetica Neue',system-ui,sans-serif";
+  const chips = ["Library lokal", "Streaming online", "Level & XP"];
+
   return (
     <div style={{
       minHeight: "100dvh", display: "flex", flexDirection: "column",
       alignItems: "center", justifyContent: "center",
-      background: "#0E0C1E", position: "relative", overflow: "hidden",
+      background: "radial-gradient(120% 80% at 50% 0%, #1d1545 0%, #0E0C1E 55%, #07060e 100%)",
+      position: "relative", overflow: "hidden",
+      padding: "max(28px, env(safe-area-inset-top)) 0 max(28px, env(safe-area-inset-bottom))",
+      fontFamily: FONT,
     }}>
       <style>{LOGO_ANIM_CSS}</style>
 
-      {/* Background blobs */}
-      <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
-        <div style={{ position: "absolute", top: "-18%", left: "-15%", width: 420, height: 420, borderRadius: "50%", background: "radial-gradient(circle,rgba(195,68,102,0.18) 0%,transparent 70%)" }} />
-        <div style={{ position: "absolute", bottom: "-12%", right: "-18%", width: 380, height: 380, borderRadius: "50%", background: "radial-gradient(circle,rgba(91,33,182,0.22) 0%,transparent 70%)" }} />
-        <div style={{ position: "absolute", top: "40%", left: "60%", width: 200, height: 200, borderRadius: "50%", background: "radial-gradient(circle,rgba(14,118,188,0.12) 0%,transparent 70%)" }} />
+      {/* Aurora orbs */}
+      <div aria-hidden="true" style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
+        <div className="login-orb" style={{ position: "absolute", top: "-14%", left: "-20%", width: 380, height: 380, borderRadius: "50%", background: "rgba(195,68,102,0.45)", animation: "orbA 14s ease-in-out infinite" }} />
+        <div className="login-orb" style={{ position: "absolute", bottom: "-16%", right: "-22%", width: 420, height: 420, borderRadius: "50%", background: "rgba(91,33,182,0.5)", animation: "orbB 17s ease-in-out infinite" }} />
+        <div className="login-orb" style={{ position: "absolute", top: "42%", left: "58%", width: 220, height: 220, borderRadius: "50%", background: "rgba(14,118,188,0.35)", animation: "orbC 12s ease-in-out infinite" }} />
       </div>
 
-      {/* Grid lines */}
-      <div style={{
-        position: "absolute", inset: 0, pointerEvents: "none", opacity: 0.04,
-        backgroundImage: "linear-gradient(rgba(255,255,255,0.8) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.8) 1px,transparent 1px)",
-        backgroundSize: "48px 48px",
+      {/* Fine grid */}
+      <div aria-hidden="true" style={{
+        position: "absolute", inset: 0, pointerEvents: "none", opacity: 0.035,
+        backgroundImage: "linear-gradient(rgba(255,255,255,.9) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.9) 1px,transparent 1px)",
+        backgroundSize: "44px 44px",
+        WebkitMaskImage: "radial-gradient(circle at 50% 40%, #000 20%, transparent 75%)",
+        maskImage: "radial-gradient(circle at 50% 40%, #000 20%, transparent 75%)",
       }} />
 
-      {/* Card */}
-      <div className="login-card" style={{ width: "100%", maxWidth: 360, padding: "0 24px", position: "relative", zIndex: 2 }}>
+      {/* Equalizer skyline */}
+      <div aria-hidden="true" style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 130, display: "flex", alignItems: "flex-end", justifyContent: "center", gap: 6, opacity: 0.16, pointerEvents: "none", padding: "0 10px", overflow: "hidden" }}>
+        {Array.from({ length: 34 }).map((_, k) => (
+          <div key={k} className="login-eq" style={{
+            flex: "1 1 0", maxWidth: 10, height: 40 + ((k * 37) % 80), borderRadius: 6,
+            background: "linear-gradient(to top, #C34466, #7C3AED)",
+            animationDuration: `${1.1 + ((k * 7) % 9) / 10}s`, animationDelay: `${-((k * 13) % 17) / 10}s`,
+          }} />
+        ))}
+      </div>
 
-        {/* Logo */}
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 40 }}>
-          <div className="login-logo" style={{
-            width: 84, height: 84, borderRadius: 26, marginBottom: 20,
-            background: "linear-gradient(145deg,#C34466,#7C3AED)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            boxShadow: "0 0 0 1px rgba(195,68,102,0.3), 0 20px 50px rgba(195,68,102,0.3)",
-          }}>
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="#fff">
-              <rect x="3" y="9" width="3.4" height="7" rx="1.7" />
-              <rect x="8.2" y="4" width="3.4" height="16" rx="1.7" />
-              <rect x="13.4" y="7" width="3.4" height="10" rx="1.7" />
-              <rect x="18.6" y="10" width="3.4" height="4" rx="1.7" />
-            </svg>
+      <div style={{ width: "100%", maxWidth: 380, padding: "0 22px", position: "relative", zIndex: 2 }}>
+
+        {/* Hero */}
+        <div className="login-card" style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 30 }}>
+          <div style={{ position: "relative", width: 96, height: 96, marginBottom: 22 }}>
+            <div className="login-ring" aria-hidden="true" style={{
+              position: "absolute", inset: -8, borderRadius: 36,
+              background: "conic-gradient(from 0deg,#C34466,#7C3AED,#0EA5E9,#C34466)",
+              filter: "blur(14px)", opacity: 0.6,
+            }} />
+            <div className="login-logo" style={{
+              position: "relative", width: 96, height: 96, borderRadius: 30,
+              background: "linear-gradient(145deg,#D2496F 0%,#7C3AED 100%)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              boxShadow: "inset 0 1px 0 rgba(255,255,255,.35), 0 18px 44px rgba(124,58,237,.4)",
+            }}>
+              <svg width="54" height="54" viewBox="0 0 24 24" fill="#fff" aria-hidden="true">
+                <rect x="3" y="9" width="3.4" height="7" rx="1.7" />
+                <rect x="8.2" y="4" width="3.4" height="16" rx="1.7" />
+                <rect x="13.4" y="7" width="3.4" height="10" rx="1.7" />
+                <rect x="18.6" y="10" width="3.4" height="4" rx="1.7" />
+              </svg>
+            </div>
           </div>
-          <div className="shimmer-text" style={{ fontSize: 34, fontWeight: 800, letterSpacing: -1, marginBottom: 6, fontFamily: "-apple-system,BlinkMacSystemFont,'SF Pro Display','Helvetica Neue',system-ui,sans-serif" }}>
-            SICAC
-          </div>
-          <div style={{ fontSize: 14, color: "rgba(255,255,255,0.45)", letterSpacing: 0.5 }}>
-            Music Player
+          <h1 className="shimmer-text" style={{ margin: 0, fontSize: 38, fontWeight: 800, letterSpacing: -1.4, lineHeight: 1 }}>SICAC</h1>
+          <div style={{ fontSize: 14, color: "rgba(255,255,255,0.55)", marginTop: 10, letterSpacing: 0.2 }}>Musik kamu. Di mana saja.</div>
+          <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 6, marginTop: 16 }}>
+            {chips.map(c => (
+              <span key={c} style={{ fontSize: 11, fontWeight: 600, color: "rgba(255,255,255,0.72)", padding: "5px 11px", borderRadius: 99, background: "rgba(255,255,255,0.07)", border: "1px solid rgba(255,255,255,0.1)" }}>{c}</span>
+            ))}
           </div>
         </div>
 
-        {/* Login card */}
-        <div style={{
-          background: "rgba(255,255,255,0.05)",
-          border: "1px solid rgba(255,255,255,0.10)",
-          borderRadius: 28, padding: "32px 28px 28px",
-          backdropFilter: "blur(20px)",
-          boxShadow: "0 24px 80px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.08)",
+        {/* Card with gradient border */}
+        <div className="login-card2" style={{
+          padding: 1, borderRadius: 28,
+          background: "linear-gradient(160deg,rgba(255,255,255,.26),rgba(255,255,255,.05) 38%,rgba(195,68,102,.38))",
+          boxShadow: "0 30px 80px rgba(0,0,0,.55)",
         }}>
-          <div style={{ textAlign: "center", marginBottom: 28 }}>
-            <div style={{ fontSize: 20, fontWeight: 700, color: "#fff", marginBottom: 6, fontFamily: "-apple-system,BlinkMacSystemFont,'SF Pro Display','Helvetica Neue',system-ui,sans-serif" }}>
-              Selamat datang
-            </div>
-            <div style={{ fontSize: 13, color: "rgba(255,255,255,0.48)", lineHeight: 1.5 }}>
-              Masuk dengan akun Google kamu untuk mulai mendengarkan musik
-            </div>
-          </div>
-
-          {/* Divider */}
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
-            <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.08)" }} />
-            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.28)", letterSpacing: 1 }}>MASUK DENGAN</div>
-            <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.08)" }} />
-          </div>
-
-          {/* Google button container */}
-          <div style={{ display: "flex", justifyContent: "center", marginBottom: 16, minHeight: 44 }}>
-            {loading ? (
-              <div style={{ display: "flex", alignItems: "center", gap: 10, color: "rgba(255,255,255,0.55)", fontSize: 13 }}>
-                <div style={{ width: 18, height: 18, borderRadius: "50%", border: "2px solid rgba(255,255,255,0.15)", borderTopColor: "#C34466", animation: "spin 0.8s linear infinite" }} />
-                Masuk...
+          <div style={{
+            background: "rgba(16,12,36,0.84)", backdropFilter: "blur(26px)", WebkitBackdropFilter: "blur(26px)",
+            borderRadius: 27, padding: "26px 22px 22px",
+          }}>
+            <div style={{ textAlign: "center", marginBottom: 22 }}>
+              <div style={{ fontSize: 21, fontWeight: 700, color: "#fff", marginBottom: 6, letterSpacing: -0.4 }}>Selamat datang</div>
+              <div style={{ fontSize: 13, color: "rgba(255,255,255,0.5)", lineHeight: 1.55 }}>
+                Masuk dengan akun Google untuk menyimpan profil, level, dan riwayat putar kamu.
               </div>
-            ) : (
-              <div ref={gBtnRef} className="g-btn" />
-            )}
-          </div>
-
-          {error && (
-            <div style={{ background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 12, padding: "10px 14px", fontSize: 12, color: "#FCA5A5", textAlign: "center", marginBottom: 12 }}>
-              {error}
             </div>
-          )}
 
-          {/* Guest mode */}
-          <div style={{ textAlign: "center", marginTop: 18 }}>
+            {/* Google button */}
+            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: 48, marginBottom: 14 }}>
+              {loading ? (
+                <div style={{ display: "flex", alignItems: "center", gap: 10, color: "rgba(255,255,255,0.6)", fontSize: 13 }}>
+                  <div style={{ width: 18, height: 18, borderRadius: "50%", border: "2px solid rgba(255,255,255,0.15)", borderTopColor: "#C34466", animation: "spin .8s linear infinite" }} />
+                  Memproses akun...
+                </div>
+              ) : (
+                <div ref={gBtnRef} style={{ borderRadius: 99, boxShadow: "0 8px 26px rgba(195,68,102,.22)" }} />
+              )}
+            </div>
+
+            {error && (
+              <div role="alert" style={{ background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.22)", borderRadius: 12, padding: "10px 14px", fontSize: 12, color: "#FCA5A5", textAlign: "center", marginBottom: 12 }}>
+                {error}
+              </div>
+            )}
+
+            {/* Divider */}
+            <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "16px 0" }}>
+              <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.09)" }} />
+              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", letterSpacing: 1.2 }}>ATAU</div>
+              <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.09)" }} />
+            </div>
+
             <button
+              className="login-guest"
               onClick={() => onLogin({ name: "Tamu", email: "", avatar: null, sub: "guest", isGuest: true })}
-              style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.35)", fontSize: 12, textDecoration: "underline", textDecorationColor: "rgba(255,255,255,0.15)" }}
+              style={{ width: "100%", height: 46, borderRadius: 99, cursor: "pointer", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.16)", color: "rgba(255,255,255,0.85)", fontSize: 14, fontWeight: 600 }}
             >
               Lanjut sebagai Tamu
             </button>
           </div>
         </div>
 
-        {/* Footer */}
-        <div style={{ textAlign: "center", marginTop: 24, fontSize: 11, color: "rgba(255,255,255,0.2)", lineHeight: 1.7 }}>
-          Dengan masuk, kamu menyetujui syarat penggunaan.{"\n"}
-          <span style={{ color: "rgba(255,255,255,0.3)" }}>devnsepele © 2025</span>
+        <div style={{ textAlign: "center", marginTop: 22, fontSize: 11, color: "rgba(255,255,255,0.28)", lineHeight: 1.7 }}>
+          Dengan masuk, kamu menyetujui syarat penggunaan.<br />
+          <span style={{ color: "rgba(255,255,255,0.4)" }}>devnsepele © 2025</span>
         </div>
       </div>
     </div>
@@ -215,6 +251,8 @@ const GLOBAL_CSS = `
 button,input,textarea,select{font-family:inherit}
 body{-webkit-font-smoothing:antialiased}
 @keyframes spin{to{transform:rotate(360deg)}}
+@keyframes fpIn{from{opacity:0;transform:translateY(18px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes eqBar{0%,100%{transform:scaleY(.3)}50%{transform:scaleY(1)}}
 .seek{-webkit-appearance:none;appearance:none;width:100%;height:6px;border-radius:99px;outline:none;cursor:pointer}
 .seek::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.45)}
 .seek::-moz-range-thumb{width:18px;height:18px;border:none;border-radius:50%;background:#fff}
@@ -343,170 +381,113 @@ const mapYT = (it) => ({
   thumb: it.snippet?.thumbnails?.medium?.url,
 });
 
-// ─── ONLINE MUSIC PLAYER (YouTube audio-mode, no video shown) ──────────────
-const OnlineMusicPlayer = ({ track, onClose }) => {
-  const iframeRef  = useRef(null);
-  const playerRef  = useRef(null);
-  const [playing, setPlaying]   = useState(true);
+// ─── ONLINE PLAYER HOOK (YouTube audio-mode, hidup di level App) ──────────
+// Player YouTube dibuat sekali dan tidak dihancurkan saat ganti lagu / pindah tab,
+// jadi lagu bisa lanjut, di-skip, dan tampil di notifikasi media.
+const useOnlinePlayer = () => {
+  const hostRef    = useRef(null);
+  const ytRef      = useRef(null);
+  const readyRef   = useRef(false);
+  const pendingRef = useRef(null);
+  const queueRef   = useRef([]);
+  const idxRef     = useRef(-1);
+  const [queue, setQueue]       = useState([]);
+  const [index, setIndex]       = useState(-1);
+  const [playing, setPlaying]   = useState(false);
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
   const [ready, setReady]       = useState(false);
-  const timerRef = useRef(null);
 
-  // Load YT IFrame API once
-  useEffect(() => {
-    const initPlayer = () => {
-      playerRef.current = new window.YT.Player(iframeRef.current, {
-        videoId: track.id,
-        playerVars: {
-          autoplay: 1, playsinline: 1, controls: 0,
-          disablekb: 1, fs: 0, modestbranding: 1, rel: 0, iv_load_policy: 3,
-        },
+  const track = index >= 0 ? queue[index] || null : null;
+
+  const goTo = useCallback((i) => {
+    const q = queueRef.current;
+    if (!q.length) return;
+    const n = ((i % q.length) + q.length) % q.length;
+    idxRef.current = n; setIndex(n); setProgress(0); setDuration(0);
+    const id = q[n].id;
+    if (ytRef.current && readyRef.current) { try { ytRef.current.loadVideoById(id); } catch (_) {} }
+    else pendingRef.current = id;
+  }, []);
+
+  const ensure = useCallback(() => {
+    if (ytRef.current || !hostRef.current) return;
+    const create = () => {
+      if (ytRef.current || !hostRef.current) return;
+      ytRef.current = new window.YT.Player(hostRef.current, {
+        height: "1", width: "1",
+        playerVars: { autoplay: 1, playsinline: 1, controls: 0, disablekb: 1, fs: 0, modestbranding: 1, rel: 0, iv_load_policy: 3 },
         events: {
           onReady: (e) => {
-            setReady(true);
-            setDuration(e.target.getDuration() || 0);
-            e.target.playVideo();
+            readyRef.current = true; setReady(true);
+            if (pendingRef.current) { e.target.loadVideoById(pendingRef.current); pendingRef.current = null; }
           },
           onStateChange: (e) => {
-            const YT = window.YT.PlayerState;
-            setPlaying(e.data === YT.PLAYING);
-            if (e.data === YT.ENDED) { setPlaying(false); setProgress(0); }
+            const S = window.YT.PlayerState;
+            if (e.data === S.PLAYING) setPlaying(true);
+            else if (e.data === S.PAUSED) setPlaying(false);
+            else if (e.data === S.ENDED) goTo(idxRef.current + 1);   // otomatis lagu berikutnya
           },
+          onError: () => goTo(idxRef.current + 1),                    // lagu tidak bisa diputar → lompat
         },
       });
     };
-
-    if (!window.YT) {
+    if (window.YT?.Player) { create(); return; }
+    const prev = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = () => { try { prev?.(); } catch (_) {} create(); };
+    if (!document.querySelector('script[src*="youtube.com/iframe_api"]')) {
       const tag = document.createElement("script");
       tag.src = "https://www.youtube.com/iframe_api";
       document.head.appendChild(tag);
-      window.onYouTubeIframeAPIReady = initPlayer;
-    } else {
-      initPlayer();
     }
-    return () => {
-      if (playerRef.current) { try { playerRef.current.destroy(); } catch(_) {} }
-      clearInterval(timerRef.current);
-    };
-  }, [track.id]);
+  }, [goTo]);
 
-  // Poll progress
+  // Poll progress selama ada lagu
   useEffect(() => {
-    timerRef.current = setInterval(() => {
+    if (!track) return;
+    const t = setInterval(() => {
       try {
-        const p = playerRef.current;
-        if (!p) return;
-        const cur = p.getCurrentTime?.() || 0;
-        const dur = p.getDuration?.() || 0;
-        setProgress(cur);
-        if (dur > 0) setDuration(dur);
-      } catch(_) {}
+        const p = ytRef.current;
+        if (!p || !readyRef.current) return;
+        setProgress(p.getCurrentTime?.() || 0);
+        const d = p.getDuration?.() || 0;
+        if (d > 0) setDuration(d);
+      } catch (_) {}
     }, 500);
-    return () => clearInterval(timerRef.current);
+    return () => clearInterval(t);
+  }, [track?.id]);
+
+  useEffect(() => () => { try { ytRef.current?.destroy(); } catch (_) {} ytRef.current = null; }, []);
+
+  const play   = useCallback((list, i) => { queueRef.current = list; setQueue(list); ensure(); goTo(i); }, [ensure, goTo]);
+  const pause  = useCallback(() => { try { ytRef.current?.pauseVideo(); } catch (_) {} }, []);
+  const resume = useCallback(() => { try { ytRef.current?.playVideo(); } catch (_) {} }, []);
+  const toggle = useCallback(() => {
+    try {
+      if (!readyRef.current) return;
+      if (ytRef.current.getPlayerState() === 1) ytRef.current.pauseVideo(); else ytRef.current.playVideo();
+    } catch (_) {}
+  }, []);
+  const next = useCallback(() => goTo(idxRef.current + 1), [goTo]);
+  const prev = useCallback(() => {
+    try { if ((ytRef.current?.getCurrentTime?.() || 0) > 5) { ytRef.current.seekTo(0, true); return; } } catch (_) {}
+    goTo(idxRef.current - 1);
+  }, [goTo]);
+  const seek = useCallback((t) => { try { ytRef.current?.seekTo(t, true); } catch (_) {} setProgress(t); }, []);
+  const stop = useCallback(() => {
+    try { ytRef.current?.stopVideo(); } catch (_) {}
+    pendingRef.current = null; queueRef.current = []; idxRef.current = -1;
+    setQueue([]); setIndex(-1); setPlaying(false); setProgress(0); setDuration(0);
   }, []);
 
-  const togglePlay = () => {
-    try {
-      if (playing) playerRef.current?.pauseVideo();
-      else playerRef.current?.playVideo();
-    } catch(_) {}
-  };
-
-  const fmtT = (s) => {
-    if (!s || isNaN(s)) return "0:00";
-    return `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,"0")}`;
-  };
-
-  const pct = duration > 0 ? (progress / duration) * 100 : 0;
-
-  return (
-    <div style={{
-      position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 9000,
-      background: "linear-gradient(to top, rgba(var(--bg-rgb),0.99) 0%, rgba(var(--bg-rgb),0.97) 100%)",
-      borderTop: "1px solid rgba(255,255,255,0.10)",
-      backdropFilter: "blur(28px)", padding: "0 0 env(safe-area-inset-bottom,0px)",
-    }}>
-      {/* hidden YT iframe */}
-      <div style={{ position: "absolute", width: 1, height: 1, overflow: "hidden", opacity: 0, pointerEvents: "none" }}>
-        <div ref={iframeRef} />
-      </div>
-
-      {/* Album art hero strip */}
-      <div style={{
-        height: 3, background: `linear-gradient(90deg, var(--accent) ${pct}%, rgba(255,255,255,0.08) ${pct}%)`,
-        transition: "background 0.5s linear",
-      }} />
-
-      <div style={{ padding: "14px 18px 16px", display: "flex", flexDirection: "column", gap: 14 }}>
-        {/* Track info row */}
-        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          {/* Thumbnail as music art */}
-          <div style={{
-            width: 54, height: 54, borderRadius: 14, flexShrink: 0, overflow: "hidden",
-            background: track.thumb ? `url(${track.thumb}) center/cover` : "var(--hero1)",
-            boxShadow: "0 4px 16px rgba(0,0,0,0.5)",
-          }} />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div className="disp" style={{
-              fontSize: 15, fontWeight: 700, color: "#fff",
-              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-            }}>{track.title}</div>
-            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", marginTop: 2 }}>{track.channel}</div>
-          </div>
-          <button onClick={onClose} style={{
-            background: "rgba(255,255,255,0.09)", border: "none", borderRadius: 10,
-            width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center",
-            color: "rgba(255,255,255,0.7)", cursor: "pointer", flexShrink: 0,
-          }}>
-            <IcClose s={16} />
-          </button>
-        </div>
-
-        {/* Time / progress */}
-        <div>
-          <div style={{
-            height: 4, borderRadius: 999, background: "rgba(255,255,255,0.10)", overflow: "hidden", marginBottom: 6,
-          }}>
-            <div style={{
-              height: "100%", borderRadius: 999, background: "var(--accent-soft)",
-              width: `${pct}%`, transition: "width 0.5s linear",
-            }} />
-          </div>
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "rgba(255,255,255,0.45)" }}>
-            <span>{fmtT(progress)}</span>
-            <span>{fmtT(duration)}</span>
-          </div>
-        </div>
-
-        {/* Controls */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 22 }}>
-          <button onClick={togglePlay} style={{
-            width: 52, height: 52, borderRadius: "50%", border: "none", cursor: "pointer",
-            background: "var(--accent)", color: "#fff",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            boxShadow: "0 4px 18px rgba(var(--accent-rgb),0.45)",
-            opacity: ready ? 1 : 0.5,
-          }}>
-            {playing ? <IcPause s={22} /> : <IcPlay s={22} />}
-          </button>
-          {!ready && (
-            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.45)", position: "absolute", bottom: 78 }}>
-              Memuat audio...
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
+  return { hostRef, track, queue, index, playing, progress, duration, ready, play, pause, resume, toggle, next, prev, seek, stop };
 };
 
-const OnlineHome = ({ ytKey }) => {
+const OnlineHome = ({ ytKey, online }) => {
   const [q, setQ]          = useState("");
   const [items, setItems]  = useState([]);
   const [loading, setLoad] = useState(false);
   const [error, setError]  = useState("");
-  const [nowPlaying, setNowPlaying] = useState(null);
   const [category, setCategory]     = useState("all"); // "all" | "trending" | "liked"
 
   const load = useCallback(async (query) => {
@@ -548,7 +529,7 @@ const OnlineHome = ({ ytKey }) => {
   );
 
   return (
-    <div style={{ paddingBottom: nowPlaying ? 160 : 0 }}>
+    <div>
       {/* Search bar */}
       <div style={{
         display: "flex", gap: 10, marginBottom: 18,
@@ -600,34 +581,26 @@ const OnlineHome = ({ ytKey }) => {
       )}
 
       {/* Track list */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         {items.map((v, i) => {
-          const isActive = nowPlaying?.id === v.id;
+          const isActive = online.track?.id === v.id;
           return (
             <button
               key={v.id}
-              onClick={() => setNowPlaying(v)}
+              onClick={() => (isActive ? online.toggle() : online.play(items, i))}
               style={{
                 display: "flex", alignItems: "center", gap: 12, width: "100%",
-                textAlign: "left", background: isActive ? "rgba(var(--accent-rgb),0.12)" : "transparent",
-                border: isActive ? "1px solid rgba(var(--accent-rgb),0.25)" : "1px solid transparent",
-                borderRadius: 14, padding: "10px 12px", cursor: "pointer", color: "#fff",
+                textAlign: "left", background: isActive ? "rgba(var(--accent-rgb),0.14)" : "rgba(255,255,255,0.035)",
+                border: isActive ? "1px solid rgba(var(--accent-rgb),0.32)" : "1px solid transparent",
+                borderRadius: 18, padding: "8px 12px 8px 8px", cursor: "pointer", color: "#fff",
                 transition: "background 0.15s, border 0.15s",
               }}
             >
-              {/* Number / playing indicator */}
+              {/* Thumbnail */}
               <div style={{
-                width: 20, textAlign: "center", fontSize: 12, flexShrink: 0,
-                color: isActive ? "var(--accent-soft)" : "rgba(255,255,255,0.3)", fontWeight: 600,
-              }}>
-                {isActive ? <IcMusic s={13} /> : i + 1}
-              </div>
-
-              {/* Thumbnail as album art square */}
-              <div style={{
-                width: 48, height: 48, borderRadius: 12, flexShrink: 0, overflow: "hidden",
+                width: 48, height: 48, borderRadius: 14, flexShrink: 0, overflow: "hidden",
                 background: v.thumb ? `url(${v.thumb}) center/cover` : "var(--hero1)",
-                boxShadow: isActive ? "0 0 0 2px var(--accent-soft)" : "none",
+                boxShadow: "none",
                 position: "relative",
               }}>
                 {isActive && (
@@ -652,21 +625,13 @@ const OnlineHome = ({ ytKey }) => {
 
               {/* Play icon */}
               <div style={{ color: isActive ? "var(--accent-soft)" : "rgba(255,255,255,0.25)", flexShrink: 0 }}>
-                {isActive ? <IcPause s={16} /> : <IcPlay s={16} />}
+                {isActive && online.playing ? <IcPause s={16} /> : <IcPlay s={16} />}
               </div>
             </button>
           );
         })}
       </div>
 
-      {/* Online music player - fixed bottom */}
-      {nowPlaying && (
-        <OnlineMusicPlayer
-          key={nowPlaying.id}
-          track={nowPlaying}
-          onClose={() => setNowPlaying(null)}
-        />
-      )}
     </div>
   );
 };
@@ -682,6 +647,22 @@ const getLevelInfo = (xp) => {
   const next = LEVELS[idx + 1];
   const pct = next ? Math.round(((xp - lvl.min) / (next.min - lvl.min)) * 100) : 100;
   return { ...lvl, idx, xp, pct, next };
+};
+// Artwork notifikasi untuk lagu lokal (tanpa cover): gradien + inisial
+const makeArtwork = (song) => {
+  try {
+    if (song?.cover) return [{ src: song.cover, sizes: "512x512" }];
+    const c = document.createElement("canvas"); c.width = c.height = 256;
+    const g = c.getContext("2d");
+    const [c0, c1, c2, c3] = GRADIENTS[(song?.title?.charCodeAt(0) || 0) % GRADIENTS.length];
+    const gr = g.createLinearGradient(0, 0, 256, 256);
+    gr.addColorStop(0, c0); gr.addColorStop(0.4, c1); gr.addColorStop(0.7, c2); gr.addColorStop(1, c3);
+    g.fillStyle = gr; g.fillRect(0, 0, 256, 256);
+    g.fillStyle = "rgba(255,255,255,.9)"; g.font = "700 88px system-ui,sans-serif";
+    g.textAlign = "center"; g.textBaseline = "middle";
+    g.fillText((song?.title || "SC").slice(0, 2).toUpperCase(), 128, 134);
+    return [{ src: c.toDataURL("image/png"), sizes: "256x256", type: "image/png" }];
+  } catch (_) { return []; }
 };
 const genId = () => Math.random().toString(36).slice(2, 9);
 
@@ -795,34 +776,42 @@ const IconBtn = ({ icon: Icon, onClick, active, size = 20, style: sx = {} }) => 
 );
 
 // ─── SONG ROW ──────────────────────────────────────────────────────────────
-const SongRow = ({ song, index, isActive, onPlay, onLike, onDelete }) => (
-  <div onClick={onPlay} style={{
-    display: "flex", alignItems: "center", gap: 12, padding: "10px 10px",
-    borderRadius: 14, cursor: "pointer",
-    background: isActive ? "rgba(var(--accent-rgb),0.12)" : "transparent",
-    boxShadow: isActive ? "inset 3px 0 0 var(--accent)" : "none",
-    transition: "background 0.15s",
-  }}>
-    {index !== undefined && (
-      <div style={{ width: 20, textAlign: "center", fontSize: 12, color: isActive ? "var(--accent-soft)" : "rgba(255,255,255,0.3)", fontWeight: 600, flexShrink: 0 }}>
-        {isActive ? <IcMusic s={13} /> : index}
-      </div>
-    )}
-    <AlbumArt song={song} size={44} />
+const rowIconBtn = { background: "none", border: "none", cursor: "pointer", width: 34, height: 34, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", padding: 0 };
+const SongRow = ({ song, isActive, onPlay, onLike, onDelete }) => (
+  <div
+    role="button" tabIndex={0} onClick={onPlay}
+    onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onPlay(); } }}
+    style={{
+      display: "flex", alignItems: "center", gap: 12, padding: "8px 6px 8px 8px", marginBottom: 6,
+      borderRadius: 18, cursor: "pointer",
+      background: isActive ? "rgba(var(--accent-rgb),0.14)" : "rgba(255,255,255,0.035)",
+      border: isActive ? "1px solid rgba(var(--accent-rgb),0.32)" : "1px solid transparent",
+      transition: "background .15s, border-color .15s",
+    }}
+  >
+    <div style={{ position: "relative", flexShrink: 0 }}>
+      <AlbumArt song={song} size={48} style={{ borderRadius: 14 }} />
+      {isActive && (
+        <div style={{ position: "absolute", inset: 0, borderRadius: 14, background: "rgba(0,0,0,.4)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--accent-soft)" }}>
+          <IcMusic s={16} />
+        </div>
+      )}
+    </div>
     <div style={{ flex: 1, minWidth: 0 }}>
       <div style={{ fontSize: 14, fontWeight: 600, color: isActive ? "var(--accent-soft)" : "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{song.title}</div>
-      <div style={{ fontSize: 11, color: "rgba(255,255,255,0.55)", marginTop: 2 }}>{song.artist}</div>
+      <div style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        {song.artist}{song.duration ? ` · ${fmt(song.duration)}` : ""}
+      </div>
     </div>
-    <div style={{ display: "flex", alignItems: "center", gap: 2, flexShrink: 0 }}>
+    <div style={{ display: "flex", alignItems: "center", flexShrink: 0 }}>
       {onLike && (
-        <button onClick={e => { e.stopPropagation(); onLike(); }} style={{ background: "none", border: "none", cursor: "pointer", padding: 4, display: "flex", color: "rgba(255,255,255,0.5)" }}>
-          <IcHeart s={15} filled={song.liked} />
+        <button aria-label={song.liked ? "Hapus dari favorit" : "Tambah ke favorit"} onClick={e => { e.stopPropagation(); onLike(); }} style={{ ...rowIconBtn, color: "rgba(255,255,255,0.5)" }}>
+          <IcHeart s={17} filled={song.liked} />
         </button>
       )}
-      <span style={{ fontSize: 11, color: "rgba(255,255,255,0.64)", minWidth: 30, textAlign: "right" }}>{fmt(song.duration)}</span>
       {onDelete && (
-        <button onClick={e => { e.stopPropagation(); onDelete(); }} style={{ background: "none", border: "none", cursor: "pointer", padding: 4, display: "flex", color: "rgba(255,80,80,0.5)", marginLeft: 2 }}>
-          <IcTrash s={14} />
+        <button aria-label="Hapus lagu" onClick={e => { e.stopPropagation(); onDelete(); }} style={{ ...rowIconBtn, color: "rgba(255,110,110,0.65)" }}>
+          <IcTrash s={16} />
         </button>
       )}
     </div>
@@ -928,7 +917,19 @@ const usePlayer = (songs) => {
     setProgress(t);
   }, []);
 
+  const pause = useCallback(() => {
+    audioRef.current?.pause();
+    setIsPlaying(false);
+  }, []);
+
+  const stop = useCallback(() => {
+    const audio = audioRef.current;
+    if (audio) { audio.pause(); audio.removeAttribute("src"); audio.load(); }
+    setIsPlaying(false); setCurrentIdx(null); setProgress(0); setDuration(0);
+  }, []);
+
   return {
+    pause, stop,
     currentSong, currentIdx, isPlaying, progress, duration,
     volume, setVolume, shuffle, setShuffle, repeat, setRepeat,
     togglePlay, playNext, playPrev, selectSong, seek,
@@ -1089,7 +1090,7 @@ const BannerEditor = ({ banner, onSave, onClose }) => {
 };
 
 // ─── HOME SCREEN ───────────────────────────────────────────────────────────
-const HomeScreen = ({ player, songs, setSongs, profile, banner, setBanner, onEditBanner, ytKey }) => {
+const HomeScreen = ({ player, online, songs, setSongs, profile, banner, setBanner, onEditBanner, ytKey }) => {
   const { currentSong, selectSong } = player;
   const [mode, setMode] = useState("library");
   const levelInfo = getLevelInfo(profile.xp);
@@ -1101,7 +1102,7 @@ const HomeScreen = ({ player, songs, setSongs, profile, banner, setBanner, onEdi
     : { background: `linear-gradient(135deg, ${banner.from || "#1a1a3e"} 0%, ${banner.mid || "#2d1b69"} 50%, ${banner.to || "#1e3a8a"} 100%)` };
 
   return (
-    <div style={{ paddingBottom: 176 }}>
+    <div>
       {/* BANNER */}
       <div style={{ borderRadius: 28, overflow: "hidden", ...bannerBg, position: "relative", marginBottom: 16 }}>
         <div style={{ position: "absolute", inset: 0, background: banner.type === "image" && banner.image ? "rgba(0,0,0,0.4)" : "rgba(0,0,0,0.18)" }} />
@@ -1132,7 +1133,7 @@ const HomeScreen = ({ player, songs, setSongs, profile, banner, setBanner, onEdi
           </div>
 
           {/* Title */}
-          <div className="disp" style={{ fontSize: 34, fontWeight: 700, color: "#fff", lineHeight: 1.05, margin: "26px 0 10px" }}>
+          <div className="disp" style={{ fontSize: 32, fontWeight: 700, color: "#fff", lineHeight: 1.05, margin: "20px 0 8px" }}>
             {banner.title || "Your Daily"}<br />
             <span style={{ color: banner.accent || "var(--accent-soft)" }}>{banner.subtitle || "Mix"}</span>
           </div>
@@ -1150,7 +1151,7 @@ const HomeScreen = ({ player, songs, setSongs, profile, banner, setBanner, onEdi
       </div>
 
       {/* LEVEL BAR */}
-      <div style={{ background: "rgba(255,255,255,0.055)", borderRadius: 18, padding: "14px 16px", marginBottom: 20, border: "none" }}>
+      <div style={{ background: "rgba(255,255,255,0.055)", borderRadius: 20, padding: "14px 16px", marginBottom: 16, border: "1px solid rgba(255,255,255,0.06)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 7 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <LevelBadge level={levelInfo} size={30} />
@@ -1166,7 +1167,7 @@ const HomeScreen = ({ player, songs, setSongs, profile, banner, setBanner, onEdi
         )}
       </div>
 
-      <div role="tablist" style={{ display: "flex", gap: 4, padding: 4, borderRadius: 14, background: "rgba(255,255,255,0.07)", marginBottom: 16 }}>
+      <div role="tablist" style={{ display: "flex", gap: 4, padding: 4, borderRadius: 16, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.05)", marginBottom: 18 }}>
         {[["library", "Library"], ["online", "Online"]].map(([k, l]) => (
           <button key={k} role="tab" aria-selected={mode === k} onClick={() => setMode(k)} style={{
             flex: 1, border: "none", borderRadius: 11, padding: "9px 0", fontSize: 13, fontWeight: 700, cursor: "pointer",
@@ -1176,16 +1177,17 @@ const HomeScreen = ({ player, songs, setSongs, profile, banner, setBanner, onEdi
       </div>
 
       {/* LIBRARY */}
-      {mode === "online" ? <OnlineHome ytKey={ytKey} /> : songs.length === 0 ? (
+      {mode === "online" ? <OnlineHome ytKey={ytKey} online={online} /> : songs.length === 0 ? (
         <EmptyLibrary />
       ) : (
         <>
-          <div className="disp" style={{ fontSize: 20, fontWeight: 700, color: "#fff", marginBottom: 8 }}>
-            Your library
+          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", margin: "2px 2px 12px" }}>
+            <div className="disp" style={{ fontSize: 20, fontWeight: 700, color: "#fff" }}>Your library</div>
+            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.5)" }}>{songs.length} lagu</div>
           </div>
           {songs.map((s, i) => (
             <SongRow
-              key={s.id} song={s} index={i + 1}
+              key={s.id} song={s}
               isActive={currentSong?.id === s.id}
               onPlay={() => selectSong(i)}
               onLike={() => toggleLike(s.id)}
@@ -1613,28 +1615,57 @@ const SettingsScreen = ({ banner, setBanner, themeId, setThemeId }) => {
   );
 };
 
-// ─── MINI PLAYER ───────────────────────────────────────────────────────────
-const MiniPlayer = ({ player, onExpand }) => {
-  const { currentSong, isPlaying, progress, duration, togglePlay, playNext } = player;
-  if (!currentSong) return null;
-  const pct = duration ? (progress / duration) * 100 : 0;
-
+// ─── FLOATING PLAYER (Library + Online) ───────────────────────────────────
+const FloatingPlayer = ({ s }) => {
+  if (!s) return null;
+  const pct = s.duration ? Math.min(100, (s.progress / s.duration) * 100) : 0;
+  const btn = { background: "none", border: "none", color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 };
   return (
-    <div style={{ position: "fixed", bottom: "calc(env(safe-area-inset-bottom,0px) + 86px)", left: 0, right: 0, zIndex: 40, padding: "0 14px" }}>
-      <div style={{ background: "var(--mini)", backdropFilter: "blur(20px)", borderRadius: 20, border: "1px solid rgba(255,255,255,0.1)", overflow: "hidden", boxShadow: "0 10px 30px rgba(0,0,0,0.4)" }}>
-        <div style={{ height: 2, background: "rgba(255,255,255,0.08)" }}>
-          <div style={{ height: "100%", width: `${pct}%`, background: "var(--accent)", transition: "width 0.8s linear" }} />
+    <div style={{ position: "fixed", bottom: "calc(env(safe-area-inset-bottom,0px) + 86px)", left: 0, right: 0, zIndex: 60, padding: "0 12px", pointerEvents: "none" }}>
+      <div key={s.key} style={{
+        pointerEvents: "auto", position: "relative", overflow: "hidden", borderRadius: 24,
+        background: "linear-gradient(135deg, var(--mini), rgba(var(--bg-rgb),0.97))",
+        backdropFilter: "blur(26px)", WebkitBackdropFilter: "blur(26px)",
+        border: "1px solid rgba(255,255,255,0.14)",
+        boxShadow: "0 18px 46px rgba(0,0,0,0.55), 0 0 0 1px rgba(var(--accent-rgb),0.14), inset 0 1px 0 rgba(255,255,255,0.1)",
+        animation: "fpIn .35s cubic-bezier(.22,1,.36,1) both",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 11, padding: "10px 10px 12px 10px" }}>
+          {/* Art + equalizer */}
+          <div onClick={s.onExpand || undefined} style={{ position: "relative", width: 48, height: 48, flexShrink: 0, cursor: s.onExpand ? "pointer" : "default" }}>
+            {s.thumb
+              ? <div style={{ width: 48, height: 48, borderRadius: 14, background: `url(${s.thumb}) center/cover`, boxShadow: "0 4px 14px rgba(0,0,0,.45)" }} />
+              : <AlbumArt song={s.song} size={48} style={{ borderRadius: 14 }} />}
+            {s.playing && (
+              <div aria-hidden="true" style={{ position: "absolute", right: 4, bottom: 4, display: "flex", alignItems: "flex-end", gap: 2, height: 12, padding: "2px 3px", borderRadius: 5, background: "rgba(0,0,0,.55)" }}>
+                {[0, 1, 2].map(k => <span key={k} style={{ width: 2.5, height: 10, borderRadius: 2, background: "var(--accent-soft)", transformOrigin: "bottom", animation: `eqBar ${0.7 + k * 0.18}s ease-in-out ${-k * 0.2}s infinite` }} />)}
+              </div>
+            )}
+          </div>
+
+          {/* Title */}
+          <div onClick={s.onExpand || undefined} style={{ flex: 1, minWidth: 0, cursor: s.onExpand ? "pointer" : "default" }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.title}</div>
+            <div style={{ fontSize: 11.5, color: "rgba(255,255,255,0.58)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              <span style={{ color: "var(--accent-soft)", fontWeight: 600 }}>{s.kind === "online" ? "Online" : "Library"}</span>
+              {s.subtitle ? ` · ${s.subtitle}` : ""}
+            </div>
+          </div>
+
+          {/* Controls */}
+          <div style={{ display: "flex", alignItems: "center", gap: 2, flexShrink: 0 }}>
+            <button aria-label="Sebelumnya" onClick={s.onPrev} style={{ ...btn, width: 34, height: 40, opacity: 0.85 }}><IcPrev s={19} /></button>
+            <button aria-label={s.playing ? "Jeda" : "Putar"} onClick={s.onToggle} style={{ ...btn, width: 44, height: 44, borderRadius: "50%", background: "var(--accent)", boxShadow: "0 6px 18px rgba(var(--accent-rgb),0.5)" }}>
+              {s.playing ? <IcPause s={19} /> : <IcPlay s={19} />}
+            </button>
+            <button aria-label="Berikutnya" onClick={s.onNext} style={{ ...btn, width: 34, height: 40, opacity: 0.85 }}><IcNext s={19} /></button>
+            <button aria-label="Tutup player" onClick={s.onClose} style={{ ...btn, width: 30, height: 30, marginLeft: 2, borderRadius: "50%", background: "rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.75)" }}><IcClose s={14} /></button>
+          </div>
         </div>
-        <div onClick={onExpand} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 13px", cursor: "pointer" }}>
-          <AlbumArt song={currentSong} size={38} />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{currentSong.title}</div>
-            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.64)" }}>{currentSong.artist}</div>
-          </div>
-          <div style={{ display: "flex", gap: 2 }} onClick={e => e.stopPropagation()}>
-            <IconBtn icon={isPlaying ? IcPause : IcPlay} onClick={togglePlay} size={17} sx={{ padding: 7 }} />
-            <IconBtn icon={IcNext} onClick={playNext} size={17} sx={{ padding: 7 }} />
-          </div>
+
+        {/* Progress */}
+        <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 3, background: "rgba(255,255,255,0.08)" }}>
+          <div style={{ height: "100%", width: `${pct}%`, background: "linear-gradient(90deg,var(--accent),var(--accent-soft))", transition: "width .5s linear" }} />
         </div>
       </div>
     </div>
@@ -1982,6 +2013,123 @@ export default function SicacApp() {
   }, [persistenceReady, songs, history, profile, banner, profileBanner, playerBg, themeId]);
 
   const player = usePlayer(songs);
+  const online = useOnlinePlayer();
+
+  // Hanya satu sumber yang boleh bersuara; sumber terakhir yang dipilih tampil di player melayang
+  const [activeSrc, setActiveSrc] = useState(null);
+  useEffect(() => { if (online.track) setActiveSrc("online"); }, [online.track?.id]);
+  useEffect(() => { if (player.currentSong) setActiveSrc("library"); }, [player.currentSong?.id]);
+  useEffect(() => { if (online.playing) { setActiveSrc("online"); if (player.isPlaying) player.pause(); } }, [online.playing]);
+  useEffect(() => { if (player.isPlaying) { setActiveSrc("library"); if (online.playing) online.pause(); } }, [player.isPlaying]);
+
+  const src =
+    activeSrc === "online" && online.track ? "online" :
+    activeSrc === "library" && player.currentSong ? "library" :
+    online.track ? "online" : player.currentSong ? "library" : null;
+
+  const floating = src === "online" ? {
+    key: "online", kind: "online", title: online.track.title, subtitle: online.track.channel, thumb: online.track.thumb,
+    playing: online.playing, progress: online.progress, duration: online.duration,
+    onToggle: online.toggle, onNext: online.next, onPrev: online.prev, onClose: online.stop, onExpand: null,
+  } : src === "library" ? {
+    key: "library", kind: "library", title: player.currentSong.title, subtitle: player.currentSong.artist, song: player.currentSong,
+    playing: player.isPlaying, progress: player.progress, duration: player.duration,
+    onToggle: player.togglePlay, onNext: player.playNext, onPrev: player.playPrev,
+    onClose: () => { setShowFull(false); player.stop(); }, onExpand: () => setShowFull(true),
+  } : null;
+
+  // ── XP & level: +1 XP tiap 5 detik mendengarkan (offline/online), +5 XP bonus saat lagu baru dimulai ──
+  const addXp = useCallback((n) => {
+    if (!persistenceReady) return;
+    setProfile(p => ({ ...p, xp: (p.xp || 0) + n }));
+  }, [persistenceReady]);
+
+  const listening = online.playing || player.isPlaying;
+  useEffect(() => {
+    if (!listening || !persistenceReady) return;
+    let sec = 0;
+    const t = setInterval(() => { if (++sec % 5 === 0) addXp(1); }, 1000);
+    return () => clearInterval(t);
+  }, [listening, persistenceReady, addXp]);
+
+  const bonusSeen = useRef(new Set());
+  useEffect(() => {
+    if (!persistenceReady) return;
+    const key = online.playing && online.track ? `o:${online.track.id}` : player.isPlaying && player.currentSong ? `l:${player.currentSong.id}` : null;
+    if (key && !bonusSeen.current.has(key)) { bonusSeen.current.add(key); addXp(5); }
+  }, [online.playing, online.track?.id, player.isPlaying, player.currentSong?.id, persistenceReady, addXp]);
+
+  // Notifikasi naik level
+  const lvlRef = useRef(null);
+  const [lvlToast, setLvlToast] = useState(null);
+  useEffect(() => {
+    if (!persistenceReady) return;
+    const info = getLevelInfo(profile.xp || 0);
+    if (lvlRef.current === null) { lvlRef.current = info.idx; return; }
+    if (info.idx > lvlRef.current) {
+      setLvlToast(info);
+      const t = setTimeout(() => setLvlToast(null), 3500);
+      lvlRef.current = info.idx;
+      return () => clearTimeout(t);
+    }
+    lvlRef.current = info.idx;
+  }, [profile.xp, persistenceReady]);
+
+  // ── Notifikasi media (Media Session API): judul, cover, play/pause/next/prev/seek ──
+  const ctrlRef = useRef({});
+  ctrlRef.current = src === "online" ? {
+    play: online.resume, pause: online.pause, next: online.next, prev: online.prev, seek: online.seek,
+  } : {
+    play: () => { if (!player.isPlaying) player.togglePlay(); },
+    pause: () => { if (player.isPlaying) player.togglePlay(); },
+    next: player.playNext, prev: player.playPrev, seek: player.seek,
+  };
+
+  useEffect(() => {
+    if (!("mediaSession" in navigator) || typeof MediaMetadata === "undefined") return;
+    const ms = navigator.mediaSession;
+    try {
+      if (src === "online" && online.track) {
+        const t = online.track;
+        ms.metadata = new MediaMetadata({
+          title: t.title || "Online", artist: t.channel || "", album: "SICAC Online",
+          artwork: t.thumb ? [{ src: t.thumb, sizes: "320x180", type: "image/jpeg" }] : [],
+        });
+      } else if (src === "library" && player.currentSong) {
+        const s = player.currentSong;
+        ms.metadata = new MediaMetadata({
+          title: s.title || "Lagu", artist: s.artist || "Unknown Artist", album: "SICAC Library", artwork: makeArtwork(s),
+        });
+      } else {
+        ms.metadata = null; ms.playbackState = "none";
+      }
+    } catch (_) {}
+  }, [src, online.track?.id, player.currentSong?.id]);
+
+  useEffect(() => {
+    if (!("mediaSession" in navigator)) return;
+    try { navigator.mediaSession.playbackState = !src ? "none" : (src === "online" ? online.playing : player.isPlaying) ? "playing" : "paused"; } catch (_) {}
+  }, [src, online.playing, player.isPlaying]);
+
+  useEffect(() => {
+    if (!("mediaSession" in navigator) || !src) return;
+    const dur = src === "online" ? online.duration : player.duration;
+    const pos = src === "online" ? online.progress : player.progress;
+    if (!isFinite(dur) || dur <= 0) return;
+    try { navigator.mediaSession.setPositionState({ duration: dur, position: Math.min(Math.max(pos || 0, 0), dur), playbackRate: 1 }); } catch (_) {}
+  }, [src, Math.floor(online.progress), Math.floor(player.progress), online.duration, player.duration]);
+
+  useEffect(() => {
+    if (!("mediaSession" in navigator)) return;
+    const ms = navigator.mediaSession;
+    const set = (a, fn) => { try { ms.setActionHandler(a, fn); } catch (_) {} };
+    set("play",          () => ctrlRef.current.play?.());
+    set("pause",         () => ctrlRef.current.pause?.());
+    set("nexttrack",     () => ctrlRef.current.next?.());
+    set("previoustrack", () => ctrlRef.current.prev?.());
+    set("seekto",        (d) => { if (d?.seekTime != null) ctrlRef.current.seek?.(d.seekTime); });
+    return () => ["play", "pause", "nexttrack", "previoustrack", "seekto"].forEach(a => set(a, null));
+  }, []);
 
   // Track history
   const prevSongId = useRef(null);
@@ -2004,9 +2152,9 @@ export default function SicacApp() {
       <style>{GLOBAL_CSS}</style>
       <Header tab={tab} googleUser={googleUser} onLogout={handleLogout} />
 
-      <div style={{ padding: "14px 14px 0" }}>
+      <div style={{ padding: `14px 14px calc(env(safe-area-inset-bottom,0px) + ${floating ? 178 : 106}px)` }}>
         <div style={{ display: tab === "home" ? "block" : "none" }}>
-          <HomeScreen player={player} songs={songs} setSongs={setSongs} profile={profile} banner={banner} setBanner={setBanner} onEditBanner={() => setShowBanner(true)} ytKey={ytKey} />
+          <HomeScreen player={player} online={online} songs={songs} setSongs={setSongs} profile={profile} banner={banner} setBanner={setBanner} onEditBanner={() => setShowBanner(true)} ytKey={ytKey} />
         </div>
         {tab === "upload"   && <UploadScreen  songs={songs} setSongs={setSongs} />}
         {tab === "history"  && <HistoryScreen history={history} />}
@@ -2014,7 +2162,24 @@ export default function SicacApp() {
         {tab === "settings" && <SettingsScreen banner={banner} setBanner={setBanner} themeId={themeId} setThemeId={setThemeId} />}
       </div>
 
-      {player.currentSong && <MiniPlayer player={player} onExpand={() => setShowFull(true)} />}
+      {/* Wadah tersembunyi untuk YouTube IFrame (audio saja) */}
+      <div aria-hidden="true" style={{ position: "fixed", width: 1, height: 1, overflow: "hidden", opacity: 0, pointerEvents: "none", left: 0, top: 0 }}>
+        <div><div ref={online.hostRef} /></div>
+      </div>
+
+      <FloatingPlayer s={floating} />
+
+      {lvlToast && (
+        <div role="status" style={{ position: "fixed", top: "calc(env(safe-area-inset-top,0px) + 70px)", left: 0, right: 0, zIndex: 120, display: "flex", justifyContent: "center", pointerEvents: "none" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 18px 10px 12px", borderRadius: 99, background: "var(--panel)", border: "1px solid rgba(var(--accent-rgb),0.45)", boxShadow: "0 14px 40px rgba(0,0,0,.55)", animation: "fpIn .35s cubic-bezier(.22,1,.36,1) both" }}>
+            <LevelBadge level={lvlToast} size={30} />
+            <div>
+              <div style={{ fontSize: 11, color: "var(--accent-soft)", fontWeight: 700, letterSpacing: .5 }}>NAIK LEVEL!</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#fff" }}>Lv {lvlToast.idx} · {lvlToast.name}</div>
+            </div>
+          </div>
+        </div>
+      )}
       <BottomNav active={tab} onChange={setTab} />
 
       {showFullPlayer  && <FullPlayer player={player} songs={songs} setSongs={setSongs} onClose={() => setShowFull(false)} playerBg={playerBg} setPlayerBg={setPlayerBg} />}
