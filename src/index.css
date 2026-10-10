@@ -29,3 +29,53 @@ body,
   width: 0;
   height: 0;
 }
+
+/* SICAC — hide every visible scrollbar */
+html,
+body,
+#root,
+#root *,
+*,
+*::before,
+*::after {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+#root::-webkit-scrollbar,
+#root *::-webkit-scrollbar,
+*::-webkit-scrollbar,
+*::before::-webkit-scrollbar,
+*::after::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
+}
+
+html,
+body {
+  overflow-x: hidden !important;
+}
+
+/* SICAC — remove scroll indicators and overscroll glow */
+html,
+body,
+#root {
+  overscroll-behavior: none !important;
+  -webkit-tap-highlight-color: transparent;
+}
+
+* {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+  overscroll-behavior: none !important;
+}
+
+*::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
