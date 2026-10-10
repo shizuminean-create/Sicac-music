@@ -1332,6 +1332,47 @@ const Header = ({ tab }) => {
 };
 
 // ─── ROOT ──────────────────────────────────────────────────────────────────
+
+// ─── PERSISTENT APP DATA (IndexedDB; survives app restarts and stores media) ───
+const SICAC_DB_NAME = "sicac-persistent-data";
+const SICAC_DB_STORE = "app-state";
+
+function openSicacDB() {
+  return new Promise((resolve, reject) => {
+    if (!("indexedDB" in window)) return reject(new Error("IndexedDB unavailable"));
+    const request = indexedDB.open(SICAC_DB_NAME, 1);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(SICAC_DB_STORE)) {
+        db.createObjectStore(SICAC_DB_STORE);
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function readSicacState() {
+  const db = await openSicacDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(SICAC_DB_STORE, "readonly");
+    const request = tx.objectStore(SICAC_DB_STORE).get("main");
+    request.onsuccess = () => { db.close(); resolve(request.result || null); };
+    request.onerror = () => { db.close(); reject(request.error); };
+  });
+}
+
+async function writeSicacState(value) {
+  const db = await openSicacDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(SICAC_DB_STORE, "readwrite");
+    tx.objectStore(SICAC_DB_STORE).put(value, "main");
+    tx.oncomplete = () => { db.close(); resolve(); };
+    tx.onerror = () => { db.close(); reject(tx.error); };
+    tx.onabort = () => { db.close(); reject(tx.error || new Error("Save aborted")); };
+  });
+}
+
 export default function SicacApp() {
   const [tab, setTab]                   = useState("home");
   const [themeId, setThemeIdRaw]        = useState(() => { try { return localStorage.getItem("sicac-theme") || "midnight"; } catch { return "midnight"; } });
@@ -1353,6 +1394,47 @@ export default function SicacApp() {
     title: "Your Daily", subtitle: "Mix",
     image: null,
   });
+
+  const [persistenceReady, setPersistenceReady] = useState(false);
+
+  // Load saved profile, banner, uploads, likes, history and theme before saving changes.
+  useEffect(() => {
+    let active = true;
+    readSicacState()
+      .then(saved => {
+        if (!active) return;
+        if (saved) {
+          if (Array.isArray(saved.songs)) setSongs(saved.songs);
+          if (Array.isArray(saved.history)) setHistory(saved.history);
+          if (saved.profile && typeof saved.profile === "object") {
+            setProfile(prev => ({ ...prev, ...saved.profile }));
+          }
+          if (saved.banner && typeof saved.banner === "object") {
+            setBanner(prev => ({ ...prev, ...saved.banner }));
+          }
+          if (saved.profileBanner && typeof saved.profileBanner === "object") {
+            setProfileBanner(saved.profileBanner);
+          }
+          if (saved.playerBg !== undefined) setPlayerBg(saved.playerBg);
+          if (typeof saved.themeId === "string") {
+            setThemeIdRaw(saved.themeId);
+            try { localStorage.setItem("sicac-theme", saved.themeId); } catch {}
+          }
+        }
+      })
+      .catch(error => console.warn("SICAC: gagal memuat data tersimpan", error))
+      .finally(() => { if (active) setPersistenceReady(true); });
+    return () => { active = false; };
+  }, []);
+
+  // IndexedDB avoids localStorage's small quota and persists uploaded audio/images.
+  useEffect(() => {
+    if (!persistenceReady) return;
+    const payload = { version: 1, songs, history, profile, banner, profileBanner, playerBg, themeId };
+    writeSicacState(payload).catch(error => {
+      console.error("SICAC: gagal menyimpan data", error);
+    });
+  }, [persistenceReady, songs, history, profile, banner, profileBanner, playerBg, themeId]);
 
   const player = usePlayer(songs);
 
