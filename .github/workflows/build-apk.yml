@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - main
+    paths-ignore:
+      - 'public/catalog.json'
+      - 'public/posters/**'
   workflow_dispatch:
 
 permissions:
@@ -112,11 +115,11 @@ jobs:
           "
 
       # 10. Build aplikasi web
-      # VITE_CATALOG_URL opsional (Settings > Secrets and variables > Actions > Variables).
-      # Kosong = katalog dibaca dari /catalog.json di dalam aplikasi.
+      # Katalog dibaca dari repo ini (raw GitHub) supaya update anime tidak perlu build APK ulang.
+      # Ganti dengan Variables > VITE_CATALOG_URL jika repo private / katalog di tempat lain.
       - name: Build web app
         env:
-          VITE_CATALOG_URL: ${{ vars.VITE_CATALOG_URL }}
+          VITE_CATALOG_URL: ${{ vars.VITE_CATALOG_URL || format('https://raw.githubusercontent.com/{0}/{1}/public/catalog.json', github.repository, github.ref_name) }}
         run: npm run build
 
       # 11. Pastikan hasil build tersedia
